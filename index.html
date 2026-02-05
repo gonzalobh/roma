@@ -1,0 +1,3263 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Decision Clarifier</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Aclara decisiones humanas. Entiende la situación, el riesgo y el próximo movimiento." />
+
+  <style>
+    :root {
+      --bg: #ffffff;
+      --surface: #f7f7f8;
+      --surface-strong: #ececec;
+      --border: #d1d5db;
+
+      --text-primary: #111827;
+      --text-secondary: #374151;
+
+      --accent: #111827;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px 28px 8px;
+      position: relative;
+    }
+
+    .app-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .menu-button {
+      background: none;
+      border: none;
+      font-size: 22px;
+      cursor: pointer;
+      color: var(--text-secondary);
+    }
+
+    .menu {
+      position: absolute;
+      right: 28px;
+      top: 60px;
+      margin-top: 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 6px;
+      display: none;
+      z-index: 5;
+      box-shadow: none;
+    }
+
+    .menu.open {
+      display: block;
+    }
+
+    .menu button {
+      background: none;
+      color: var(--text-primary);
+      width: 100%;
+      text-align: left;
+      padding: 8px;
+      font-size: 13px;
+    }
+
+    .workspace {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 32px;
+      padding: 48px 16px 64px;
+      transition: padding 0.35s ease, gap 0.35s ease;
+    }
+
+    /* Cuando ya hay análisis, sube todo y reduce el “aire” */
+    .workspace.is-analysis {
+      gap: 18px;
+      padding-top: 10px;
+    }
+
+    .column {
+      background: var(--surface);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .column-header {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 18px;
+    }
+
+    .input-container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .input-row {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    textarea {
+      width: 100%;
+      padding: 16px 18px;
+      font-size: 16px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      outline: none;
+      resize: none;
+      line-height: 1.7;
+      min-height: 220px;
+      background: var(--bg);
+      color: var(--text-primary);
+      transition: border-color 0.2s ease, background 0.2s ease;
+    }
+
+    textarea:focus {
+      border-color: var(--text-secondary);
+    }
+
+    textarea::placeholder {
+      color: var(--border);
+    }
+
+    button {
+      padding: 14px 18px;
+      border-radius: 12px;
+      border: 1px solid var(--text-primary);
+      background: var(--text-primary);
+      color: #ffffff;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 500;
+      transition: background 0.2s ease, border-color 0.2s ease;
+      box-shadow: none;
+    }
+
+    button:hover:not(:disabled) {
+      background: #374151;
+      border-color: #374151;
+      transform: none;
+    }
+
+    button:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .column-input {
+      grid-row: 1;
+    }
+
+    .messages {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .column-input {
+      width: 100%;
+      max-width: 720px;
+      overflow: hidden;
+      max-height: 1000px;
+      transition:
+        opacity 0.3s ease,
+        transform 0.3s ease,
+        max-height 0.4s ease,
+        margin 0.4s ease;
+    }
+
+    .column-input.is-hidden {
+      opacity: 0;
+      transform: translateY(-12px);
+      max-height: 0;
+      margin: 0;
+      pointer-events: none;
+    }
+
+    .column-input.is-removed {
+      display: none;
+    }
+
+    .message {
+      padding: 0;
+      border-radius: 0;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      background: transparent;
+    }
+
+    .message.user {
+      display: none;
+    }
+
+    .response-shell {
+      width: min(720px, 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      padding: 24px 0 36px;
+    }
+
+    .command-center {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .cc-left,
+    .cc-right {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .cc-box,
+    .cc-block {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      padding: 16px 18px;
+    }
+
+    .cc-box.is-plain,
+    .cc-block.is-plain {
+      padding: 0;
+      border: none;
+      background: transparent;
+    }
+
+    .analysis-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .radar-card {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .radar-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .radar-canvas {
+      width: 100%;
+      height: 220px;
+    }
+
+    .workspace.is-analysis .response-shell {
+      padding-top: 10px;
+    }
+
+    /* Animación entrada respuesta */
+    .response-shell {
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 0.45s ease, transform 0.45s ease;
+    }
+
+    .response-shell.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .insight-block {
+      text-align: left;
+      padding: 32px 26px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: 16px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.28s ease, transform 0.28s ease;
+    }
+
+    .response-shell.is-visible .insight-block {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .insight-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.3em;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .insight-context {
+      align-self: center;
+      padding: 4px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text-secondary);
+      font-size: 11px;
+      letter-spacing: 0.02em;
+      font-weight: 500;
+    }
+
+    .insight-text {
+      font-size: 26px;
+      font-weight: 500;
+      color: var(--text-primary);
+      line-height: 1.3;
+      max-width: 560px;
+      margin: 0;
+    }
+
+    .insight-subtext {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      max-width: 520px;
+      margin: 0;
+      opacity: 0.7;
+    }
+
+    .reasoning-toggle {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 13px;
+      letter-spacing: 0.01em;
+      text-transform: none;
+      cursor: pointer;
+      align-self: center;
+      padding: 10px 16px;
+      border-radius: 12px;
+      box-shadow: none;
+      transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .reasoning-toggle:hover {
+      background: var(--surface);
+      border-color: var(--text-secondary);
+      transform: none;
+      color: var(--text-primary);
+    }
+
+    .analysis-panel {
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transition: max-height 0.35s ease, opacity 0.35s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      border-top: 1px solid var(--border);
+      padding: 0 6px;
+    }
+
+    .analysis-panel.is-open {
+      max-height: 1200px;
+      opacity: 1;
+      padding-top: 18px;
+    }
+
+    .analysis-user-card {
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .analysis-user-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .analysis-user-title {
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-size: 10px;
+    }
+
+    .analysis-copy-button {
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text-secondary);
+      font-size: 11px;
+      padding: 6px 10px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .analysis-copy-button:hover {
+      border-color: var(--text-secondary);
+      color: var(--text-primary);
+    }
+
+    .analysis-user-body {
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+    }
+
+    .analysis-section {
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+    }
+
+    .analysis-section-title {
+      font-weight: 500;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .analysis-section-body {
+      color: var(--text-primary);
+      font-size: 14px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+    }
+
+    .options-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .dashboard-grid {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .dashboard-grid .option-card {
+      width: 100%;
+      max-width: 880px;
+    }
+
+    .dashboard-grid .option-card.is-recommended {
+      grid-column: auto;
+      transform: none;
+    }
+
+    .options-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-top: -6px;
+    }
+
+    .dashboard-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      background: var(--surface);
+    }
+
+    .dashboard-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .dashboard-context {
+      font-size: 11px;
+      color: var(--text-secondary);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .metric-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      font-size: 13px;
+      color: var(--text-primary);
+    }
+
+    .metric-label {
+      min-width: 120px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .metric-indicator {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+    }
+
+    .dots {
+      display: flex;
+      gap: 4px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--border);
+    }
+
+    .dot.is-active {
+      background: var(--text-secondary);
+      opacity: 1;
+    }
+
+    .dot.is-active.is-high {
+      background: var(--text-primary);
+    }
+
+    .metric-level {
+      font-size: 12px;
+      color: var(--text-secondary);
+      min-width: 56px;
+      text-align: right;
+    }
+
+    .summary-blocks {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: -6px;
+    }
+
+    .summary-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 18px;
+    }
+
+    .summary-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .summary-body {
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+    }
+
+    .summary-body ul {
+      margin: 0;
+      padding-left: 18px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .option-card {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 18px;
+      background: var(--bg);
+      transition: border-color 0.2s ease, background 0.25s ease, opacity 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+    }
+
+    .option-card:hover {
+      border-color: var(--text-secondary);
+    }
+
+    .option-card.is-sim-best {
+      border-color: var(--text-primary);
+      box-shadow: none;
+    }
+
+    .option-sim-score {
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .option-sim-score span {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      text-transform: none;
+      letter-spacing: 0.01em;
+    }
+
+    .option-card.is-recommended {
+      border-color: var(--text-primary);
+      background: var(--surface);
+      border-left: 3px solid var(--text-primary);
+      padding: 18px 20px;
+    }
+
+    .option-card.is-recommended::before {
+      content: none;
+    }
+
+    .option-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .option-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .option-index {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .option-title {
+      font-weight: 500;
+      font-size: 16px;
+      color: var(--text-primary);
+      letter-spacing: 0.01em;
+    }
+
+    .option-card.is-recommended .option-title {
+      font-weight: 600;
+    }
+
+    .option-tag {
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .option-card.is-recommended .option-tag {
+      border-color: var(--text-primary);
+      color: var(--text-primary);
+    }
+
+    .option-card:not(.is-recommended) {
+      opacity: 0.76;
+    }
+
+    .option-tradeoff {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      opacity: 1;
+      min-height: 18px;
+    }
+
+    .option-tradeoff-base {
+      color: var(--text-secondary);
+    }
+
+    .option-body {
+      max-height: none;
+      opacity: 1;
+      overflow: visible;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .option-text {
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+    }
+
+    .copy-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .copy-button {
+      align-self: flex-start;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-secondary);
+      padding: 0;
+      cursor: pointer;
+      width: 40px;
+      height: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      transition: border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .copy-button:hover,
+    .copy-button:focus-visible {
+      border-color: var(--border);
+      background: var(--surface);
+      outline: none;
+    }
+
+    .copy-button img {
+      width: 18px;
+      height: 18px;
+      opacity: 0.7;
+    }
+
+    .copy-feedback {
+      font-size: 12px;
+      color: var(--text-secondary);
+      opacity: 0;
+    }
+
+    .copy-feedback.is-visible {
+      animation: fadeCopy 0.9s ease;
+    }
+
+    .loader-panel {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      border-radius: 14px;
+      border: 1px dashed var(--border);
+      background: var(--surface);
+      color: var(--text-secondary);
+      font-weight: 500;
+      font-size: 13px;
+      align-self: center;
+    }
+
+    .loader-spinner {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      border-top-color: var(--text-primary);
+      animation: spin 0.9s linear infinite;
+    }
+
+    .loader-panel.is-active {
+      display: flex;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes fadeCopy {
+      0% {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+      20% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-4px);
+      }
+    }
+
+    @media (max-width: 1023px) {
+      .workspace {
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        transition: padding 0.35s ease, gap 0.35s ease;
+      }
+
+      .workspace.is-analysis {
+        gap: 14px;
+        padding-top: 10px;
+      }
+
+      .column {
+        border-radius: 16px;
+        padding: 18px;
+        border: 1px solid var(--border);
+      }
+
+      .column-input {
+        grid-row: auto;
+      }
+
+      .response-shell {
+        padding: 8px 0 24px;
+      }
+
+      .insight-text {
+        font-size: 29px;
+      }
+
+      textarea {
+        min-height: 180px;
+      }
+
+    }
+
+    @media (min-width: 1024px) {
+      .loader-mobile {
+        display: none;
+      }
+    }
+
+    .closing-line {
+      font-size: 12px;
+      color: var(--text-secondary);
+      text-align: center;
+      padding: 4px 0 0;
+      opacity: 0.7;
+    }
+
+    .response-shell.is-loading .insight-block,
+    .response-shell.is-loading .dashboard-card,
+    .response-shell.is-loading .summary-blocks,
+    .response-shell.is-loading .analysis-panel,
+    .response-shell.is-loading .compare-controls,
+    .response-shell.is-loading .compare-card,
+    .response-shell.is-loading .trust-row,
+    .response-shell.is-loading .options-title,
+    .response-shell.is-loading .options-list,
+    .response-shell.is-loading .reasoning-toggle,
+    .response-shell.is-loading .options-wrap,
+    .response-shell.is-loading .compare-wrap,
+    .response-shell.is-loading .analysis-wrap,
+    .response-shell.is-loading .radar-card {
+      display: none;
+    }
+
+    .dashboard-mode {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+
+    .pill-toggle-group {
+      display: inline-flex;
+      gap: 6px;
+    }
+
+    .pill-toggle {
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: none;
+      letter-spacing: 0.02em;
+    }
+
+    .pill-toggle.is-active {
+      border-color: var(--text-primary);
+      color: var(--text-primary);
+      background: var(--surface);
+    }
+
+    .sim-tag {
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--text-primary);
+      color: var(--text-primary);
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .metric-row {
+      cursor: pointer;
+    }
+
+    .metric-bar {
+      width: 100%;
+      height: 8px;
+      background: var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .metric-bar-fill {
+      height: 100%;
+      background: var(--text-secondary);
+      border-radius: 999px;
+      transition: width 0.2s ease, background 0.2s ease;
+    }
+
+    .metric-bar-fill[data-level="4"],
+    .metric-bar-fill[data-level="5"] {
+      background: var(--text-primary);
+    }
+
+    .metric-indicator input[type="range"] {
+      width: 120px;
+      accent-color: var(--text-primary);
+    }
+
+    .metric-explain {
+      border-left: 2px solid var(--border);
+      padding: 0 0 0 12px;
+      margin-top: -6px;
+      margin-bottom: 6px;
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: max-height 0.25s ease, opacity 0.25s ease;
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .metric-explain.is-open {
+      max-height: 200px;
+      opacity: 1;
+    }
+
+    .metric-explain ul {
+      margin: 0;
+      padding-left: 16px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .metric-signal {
+      font-size: 11px;
+      color: var(--text-secondary);
+      opacity: 0.9;
+    }
+
+    .compare-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      color: var(--text-secondary);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+
+    .compare-label {
+      font-weight: 500;
+    }
+
+    .compare-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      letter-spacing: 0.02em;
+      text-transform: none;
+      color: var(--text-primary);
+    }
+
+    .compare-item input {
+      accent-color: var(--accent);
+    }
+
+    .compare-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: var(--surface);
+    }
+
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .compare-table th,
+    .compare-table td {
+      text-align: left;
+      padding: 8px 6px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    .compare-table th {
+      color: var(--text-secondary);
+      font-weight: 500;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .compare-table ul {
+      margin: 0;
+      padding-left: 16px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .exec-row {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: var(--surface);
+    }
+
+    .exec-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .exec-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .exec-button {
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text-primary);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(17, 24, 39, 0.2);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 10;
+    }
+
+    .modal-backdrop.is-open {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      width: min(560px, 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .modal-header {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .modal textarea {
+      width: 100%;
+      min-height: 220px;
+      background: var(--bg);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 13px;
+      line-height: 1.6;
+      resize: none;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .trust-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: -6px;
+    }
+
+    .trust-pill {
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-secondary);
+      background: var(--bg);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .meta-item {
+      position: relative;
+      cursor: help;
+    }
+
+    .meta-info {
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: var(--text-secondary);
+      background: var(--surface);
+    }
+
+    .meta-item::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      left: 0;
+      bottom: calc(100% + 10px);
+      width: max-content;
+      max-width: 240px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: var(--bg);
+      color: var(--text-primary);
+      font-size: 11px;
+      line-height: 1.4;
+      border: 1px solid var(--border);
+      box-shadow: none;
+      opacity: 0;
+      transform: translateY(4px);
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 3;
+    }
+
+    .meta-item::before {
+      content: "";
+      position: absolute;
+      left: 12px;
+      bottom: calc(100% + 4px);
+      border-width: 6px 6px 0 6px;
+      border-style: solid;
+      border-color: var(--bg) transparent transparent transparent;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .meta-item:hover::after,
+    .meta-item:focus-within::after,
+    .meta-item:hover::before,
+    .meta-item:focus-within::before {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .option-card.is-recommended {
+      box-shadow: none;
+    }
+
+    .option-card.option-animate {
+      opacity: 0;
+      transform: translateY(10px);
+      animation: fadeUp 0.45s ease forwards;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .response-shell {
+        width: min(960px, 100%);
+      }
+
+      .command-center {
+        display: grid;
+        grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+        gap: 22px;
+        align-items: start;
+      }
+
+      .cc-left {
+        position: sticky;
+        top: 16px;
+        max-height: calc(100vh - 32px);
+        overflow: auto;
+        padding-right: 4px;
+      }
+
+      .cc-right {
+        gap: 18px;
+      }
+
+      .options-list {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .options-list .option-card {
+        height: 100%;
+      }
+
+      .options-list .option-card.is-recommended {
+        grid-column: 2 / span 1;
+        transform: translateY(0);
+      }
+
+      .dashboard-grid {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .dashboard-grid .option-card {
+        height: auto;
+      }
+
+      .dashboard-grid .option-card.is-recommended:hover {
+        transform: none;
+      }
+
+      .radar-card {
+        display: flex;
+      }
+
+      .option-card.is-recommended:hover {
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 1023px) {
+      .radar-card {
+        display: none;
+      }
+    }
+
+  </style>
+</head>
+<body>
+
+<div class="app-shell">
+  <div class="top-bar">
+    <div class="app-title">Decision Clarifier</div>
+    <button class="menu-button" id="menuBtn">⋯</button>
+  </div>
+  <div class="menu" id="menu">
+    <button id="resetBtn">↺ Reiniciar chat</button>
+  </div>
+
+  <div class="workspace">
+    <section class="column column-input">
+      <div class="column-header">Describe la situación</div>
+      <form class="input-container" id="form">
+        <div class="input-row">
+          <textarea id="input" rows="2" placeholder="Describe la situación (o pega el texto/email). Sé concreto." autocomplete="off" autofocus></textarea>
+          <button type="submit">Analizar</button>
+          <div class="loader-panel loader-mobile" id="loaderMobile">
+            <span class="loader-spinner" aria-hidden="true"></span>
+            <span>Ordenando la situación…</span>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <div class="messages" id="messages"></div>
+    <div class="closing-line">La claridad no elimina el conflicto. Lo ordena.</div>
+  </div>
+</div>
+
+<script>
+  const API_URL = "https://hotel-chat-proxy.vercel.app/api/t4";
+
+  const messagesEl = document.getElementById("messages");
+  const form = document.getElementById("form");
+  const input = document.getElementById("input");
+  const menuBtn = document.getElementById("menuBtn");
+  const menu = document.getElementById("menu");
+  const resetBtn = document.getElementById("resetBtn");
+  const submitButton = form.querySelector("button[type='submit']");
+  const columnInput = document.querySelector(".column-input");
+  const loaderMobile = document.getElementById("loaderMobile");
+  const closingLine = document.querySelector(".closing-line");
+  const workspaceEl = document.querySelector(".workspace");
+
+  let messages = [];
+  let isLoading = false;
+  let insightTextEl = null;
+  let insightSubtextEl = null;
+  let insightContextEl = null;
+  let reasoningToggleEl = null;
+  let analysisPanelEl = null;
+  let optionsListEl = null;
+  let loaderDesktopEl = null;
+  let currentResponseShell = null;
+  let summaryBlocksEl = null;
+  let dashboardEl = null;
+  let lastUserText = "";
+  let lastAnalysisText = "";
+  let lastOptionTexts = [];
+  let trustRowEl = null;
+  let compareControlsEl = null;
+  let compareCardEl = null;
+  let compareState = { selected: [], options: [] };
+  let dashboardState = { mode: "auto", autoMetrics: null, activeMetrics: null };
+  let modalBackdropEl = null;
+  let modalTitleEl = null;
+  let modalTextareaEl = null;
+  let modalCopyBtn = null;
+  let modalCloseBtn = null;
+  let radarCanvasEl = null;
+  let radarCardEl = null;
+  let hoverSimMetrics = null;
+  let optionsWrapEl = null;
+  let compareWrapEl = null;
+  let analysisWrapEl = null;
+
+  const WELCOME = "";
+
+  function addMessage(role, text) {
+    const div = document.createElement("div");
+    div.className = `message ${role}`;
+    div.textContent = text;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function buildUserMessageCard(text) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "analysis-user-card";
+
+    const header = document.createElement("div");
+    header.className = "analysis-user-header";
+
+    const title = document.createElement("div");
+    title.className = "analysis-user-title";
+    title.textContent = "Situación analizada";
+
+    const copyButton = document.createElement("button");
+    copyButton.type = "button";
+    copyButton.className = "analysis-copy-button";
+    copyButton.textContent = "Copiar";
+
+    const copyFeedback = document.createElement("span");
+    copyFeedback.className = "copy-feedback";
+    copyFeedback.textContent = "Copiado ✓";
+
+    const body = document.createElement("div");
+    body.className = "analysis-user-body";
+    body.textContent = text;
+
+    copyButton.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(body.textContent || "");
+        copyFeedback.classList.remove("is-visible");
+        void copyFeedback.offsetWidth;
+        copyFeedback.classList.add("is-visible");
+        setTimeout(() => {
+          copyFeedback.classList.remove("is-visible");
+        }, 900);
+      } catch (error) {
+        console.error(error);
+      }
+    });
+
+    header.appendChild(title);
+    header.appendChild(copyButton);
+    header.appendChild(copyFeedback);
+    wrapper.appendChild(header);
+    wrapper.appendChild(body);
+
+    return wrapper;
+  }
+
+  function buildLoaderPanel(type) {
+    const loader = document.createElement("div");
+    loader.className = `loader-panel ${type}`;
+    loader.innerHTML = `
+      <span class="loader-spinner" aria-hidden="true"></span>
+      <span>Ordenando la situación…</span>
+    `;
+    return loader;
+  }
+
+  function extractAnalysisSections(text) {
+    try {
+      const normalized = text.replace(/\r\n/g, "\n").trim();
+      const lecturaIndex = normalized.search(/Lectura r[áa]pida/i);
+      const pasandoIndex = normalized.search(/Qu[eé]\s+est[aá]\s+pasando/i);
+      const estrategiaIndex = normalized.search(/Estrategia/i);
+      if (lecturaIndex === -1 || pasandoIndex === -1 || pasandoIndex <= lecturaIndex) {
+        return null;
+      }
+
+      const lecturaTitleMatch = normalized.match(/Lectura r[áa]pida/i);
+      const pasandoTitleMatch = normalized.match(/Qu[eé]\s+est[aá]\s+pasando/i);
+      const estrategiaTitleMatch = normalized.match(/Estrategia/i);
+      const lecturaTitleRaw = lecturaTitleMatch ? lecturaTitleMatch[0] : "Lectura rápida";
+      const pasandoTitleRaw = pasandoTitleMatch ? pasandoTitleMatch[0] : "Qué está pasando";
+      const estrategiaTitleRaw = estrategiaTitleMatch ? estrategiaTitleMatch[0] : "Estrategia";
+      const lecturaTitle = lecturaTitleRaw.trim();
+      const pasandoTitle = pasandoTitleRaw.trim();
+      const estrategiaTitle = estrategiaTitleRaw.trim();
+      const lecturaBody = normalized
+        .slice(lecturaIndex + lecturaTitleRaw.length, pasandoIndex)
+        .trim()
+        .replace(/^[:\-\s]+/, "");
+      let pasandoBody = "";
+      let estrategiaBody = "";
+
+      if (estrategiaIndex !== -1 && estrategiaIndex > pasandoIndex) {
+        pasandoBody = normalized
+          .slice(pasandoIndex + pasandoTitleRaw.length, estrategiaIndex)
+          .trim()
+          .replace(/^[:\-\s]+/, "");
+        estrategiaBody = normalized
+          .slice(estrategiaIndex + estrategiaTitleRaw.length)
+          .trim()
+          .replace(/^[:\-\s]+/, "");
+      } else {
+        pasandoBody = normalized
+          .slice(pasandoIndex + pasandoTitleRaw.length)
+          .trim()
+          .replace(/^[:\-\s]+/, "");
+      }
+
+      const sections = [
+        { title: lecturaTitle, body: lecturaBody },
+        { title: pasandoTitle, body: pasandoBody }
+      ];
+      if (estrategiaBody) {
+        sections.push({ title: estrategiaTitle, body: estrategiaBody });
+      }
+      return sections;
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  }
+
+  function buildAnalysisSection(section) {
+    const sectionEl = document.createElement("div");
+    sectionEl.className = "analysis-section";
+
+    const title = document.createElement("div");
+    title.className = "analysis-section-title";
+    title.textContent = section.title;
+
+    const body = document.createElement("div");
+    body.className = "analysis-section-body";
+    body.textContent = section.body;
+
+    sectionEl.appendChild(title);
+    if (section.body) {
+      sectionEl.appendChild(body);
+    }
+
+    return sectionEl;
+  }
+
+  function extractFirstSentence(text) {
+    let cleaned = text.replace(/^[\s:\-–—]+/, "").trim();
+    cleaned = cleaned.replace(/^situación\s*:/i, "").trim();
+    if (!cleaned) return "";
+    const match = cleaned.match(/[^.!?]+[.!?]/);
+    if (match) {
+      return match[0].trim();
+    }
+    const firstLine = cleaned.split("\n").find(line => line.trim());
+    return (firstLine || cleaned).trim();
+  }
+
+  function trimToSentences(text, count = 2) {
+    if (!text) return "";
+    const sentences = text.split(/(?<=[.!?])\s+/).filter(Boolean);
+    return sentences.slice(0, count).join(" ").trim();
+  }
+
+  function extractBulletCandidates(text) {
+    if (!text) return [];
+    const lines = text
+      .split("\n")
+      .map(line => line.replace(/^[-*•]\s*/, "").trim())
+      .filter(Boolean);
+    if (lines.length >= 3) return lines;
+    const sentences = text
+      .split(/(?<=[.!?])\s+/)
+      .map(sentence => sentence.trim())
+      .filter(Boolean);
+    return sentences.length ? sentences : lines;
+  }
+
+  function findSectionText(text, startRegex, stopRegexes) {
+    const startMatch = text.match(startRegex);
+    if (!startMatch) return "";
+    const startIndex = text.search(startRegex);
+    const start = startIndex + startMatch[0].length;
+    let end = text.length;
+    stopRegexes.forEach((regex) => {
+      const sliceIndex = text.slice(start).search(regex);
+      if (sliceIndex !== -1) {
+        end = Math.min(end, start + sliceIndex);
+      }
+    });
+    return text.slice(start, end).trim();
+  }
+
+  function levelText(level) {
+    if (level <= 2) return "Bajo";
+    if (level <= 3) return "Medio";
+    return "Alto";
+  }
+
+  function levelTextFor(labelGender, level) {
+    if (level <= 2) return labelGender === "f" ? "Baja" : "Bajo";
+    if (level <= 3) return labelGender === "f" ? "Media" : "Medio";
+    return labelGender === "f" ? "Alta" : "Alto";
+  }
+
+  function clampMetric(value) {
+    return Math.min(5, Math.max(1, value));
+  }
+
+  function getCurrentMetrics() {
+    if (hoverSimMetrics) return hoverSimMetrics;
+    if (dashboardState.activeMetrics) return dashboardState.activeMetrics;
+    if (dashboardState.autoMetrics) return dashboardState.autoMetrics;
+    return deriveMetricsFromAnalysis(lastAnalysisText || "");
+  }
+
+  function renderRadar(canvas, metrics, { highlightKey } = {}) {
+    if (!canvas || !metrics) return;
+    try {
+      const parent = canvas.parentElement;
+      const size = Math.min(parent?.clientWidth || 260, 320);
+      const height = 220;
+      if (size <= 0) return;
+      const dpi = window.devicePixelRatio || 1;
+      canvas.width = size * dpi;
+      canvas.height = height * dpi;
+      canvas.style.width = `${size}px`;
+      canvas.style.height = `${height}px`;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.setTransform(dpi, 0, 0, dpi, 0, 0);
+      ctx.clearRect(0, 0, size, height);
+
+      const centerX = size / 2;
+      const centerY = height / 2 + 6;
+      const radius = Math.min(size, height) * 0.36;
+      const levels = 5;
+      const labels = [
+        { key: "risk", text: "Riesgo" },
+        { key: "urgency", text: "Urgencia" },
+        { key: "ambiguity", text: "Ambigüedad" },
+        { key: "inactionCost", text: "Costo" }
+      ];
+      const angleStep = (Math.PI * 2) / labels.length;
+
+      const borderColor = getComputedStyle(document.documentElement)
+        .getPropertyValue("--border") || "#1F2937";
+      const accentColor = getComputedStyle(document.documentElement)
+        .getPropertyValue("--accent") || "#1fc6ff";
+      const textColor = getComputedStyle(document.documentElement)
+        .getPropertyValue("--text-secondary") || "#9CA3AF";
+
+      ctx.strokeStyle = borderColor.trim();
+      ctx.lineWidth = 1;
+      for (let level = 1; level <= levels; level += 1) {
+        const r = (radius / levels) * level;
+        ctx.beginPath();
+        for (let i = 0; i < labels.length; i += 1) {
+          const angle = i * angleStep - Math.PI / 2;
+          const x = centerX + Math.cos(angle) * r;
+          const y = centerY + Math.sin(angle) * r;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.stroke();
+      }
+
+      labels.forEach((label, index) => {
+        const angle = index * angleStep - Math.PI / 2;
+        const x = centerX + Math.cos(angle) * radius;
+        const y = centerY + Math.sin(angle) * radius;
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      });
+
+      ctx.beginPath();
+      labels.forEach((label, index) => {
+        const level = clampMetric(metrics[label.key] || 3);
+        const r = (radius / levels) * level;
+        const angle = index * angleStep - Math.PI / 2;
+        const x = centerX + Math.cos(angle) * r;
+        const y = centerY + Math.sin(angle) * r;
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.closePath();
+      ctx.fillStyle = `${accentColor.trim()}33`;
+      ctx.strokeStyle = accentColor.trim();
+      ctx.lineWidth = 2;
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.font = "11px system-ui, sans-serif";
+      ctx.fillStyle = textColor.trim();
+      labels.forEach((label, index) => {
+        const angle = index * angleStep - Math.PI / 2;
+        const r = radius + 16;
+        const x = centerX + Math.cos(angle) * r;
+        const y = centerY + Math.sin(angle) * r;
+        ctx.textAlign = Math.cos(angle) > 0.2 ? "left" : Math.cos(angle) < -0.2 ? "right" : "center";
+        ctx.textBaseline = Math.sin(angle) > 0.2 ? "top" : Math.sin(angle) < -0.2 ? "bottom" : "middle";
+        ctx.fillText(label.text, x, y);
+      });
+
+      if (highlightKey) {
+        const highlightIndex = labels.findIndex(label => label.key === highlightKey);
+        if (highlightIndex !== -1) {
+          const angle = highlightIndex * angleStep - Math.PI / 2;
+          const r = radius + 4;
+          const x = centerX + Math.cos(angle) * r;
+          const y = centerY + Math.sin(angle) * r;
+          ctx.fillStyle = accentColor.trim();
+          ctx.beginPath();
+          ctx.arc(x, y, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  function updateRadar() {
+    if (!radarCanvasEl) return;
+    const radarMetrics = getCurrentMetrics();
+    renderRadar(radarCanvasEl, radarMetrics);
+
+    if (!optionsListEl) return;
+    const cards = Array.from(optionsListEl.querySelectorAll(".option-card"));
+    if (!cards.length) return;
+
+    const weights = dashboardState.activeMetrics || dashboardState.autoMetrics || radarMetrics;
+    const weightValues = {
+      risk: weights?.risk ?? 3,
+      urgency: weights?.urgency ?? 3,
+      ambiguity: weights?.ambiguity ?? 3,
+      inactionCost: weights?.inactionCost ?? 3
+    };
+    const totalWeight = Object.values(weightValues).reduce((sum, value) => sum + value, 0) || 1;
+
+    let bestScore = -Infinity;
+    let bestCard = null;
+    const scoredCards = [];
+    const recommendedCard = cards.find(card => card.classList.contains("is-recommended")) || null;
+
+    cards.forEach((card) => {
+      const optionText = card.dataset.optionText || "";
+      const optionScores = scoreOptionHeuristics(optionText, weights);
+      const weightedSum = (optionScores.risk * weightValues.risk)
+        + (optionScores.time * weightValues.urgency)
+        + (optionScores.control * weightValues.ambiguity)
+        + (optionScores.benefit * weightValues.inactionCost);
+      const weightedAvg = weightedSum / totalWeight;
+      const scoreOutOfTen = (weightedAvg / 5) * 10;
+      const scoreValue = Number.isFinite(scoreOutOfTen) ? scoreOutOfTen : 0;
+      card.classList.remove("is-sim-best");
+      if (scoreValue > bestScore) {
+        bestScore = scoreValue;
+        bestCard = card;
+      }
+      scoredCards.push({ card, scoreValue });
+    });
+
+    if (recommendedCard) {
+      const recommendedEntry = scoredCards.find(entry => entry.card === recommendedCard);
+      const currentRecommendedScore = recommendedEntry ? recommendedEntry.scoreValue : 0;
+      let targetRecommendedScore = Math.max(bestScore, currentRecommendedScore);
+      if (targetRecommendedScore === bestScore && recommendedCard !== bestCard) {
+        targetRecommendedScore = Math.min(10, bestScore + 0.2);
+      }
+      scoredCards.forEach(entry => {
+        let displayScore = entry.scoreValue;
+        if (entry.card === recommendedCard) {
+          displayScore = targetRecommendedScore;
+        } else if (displayScore >= targetRecommendedScore) {
+          displayScore = Math.max(0, targetRecommendedScore - 0.1);
+        }
+        const valueEl = entry.card.querySelector(".option-sim-value");
+        if (valueEl) {
+          valueEl.textContent = `${displayScore.toFixed(1)}/10`;
+        }
+      });
+      recommendedCard.classList.add("is-sim-best");
+    } else {
+      scoredCards.forEach(entry => {
+        const valueEl = entry.card.querySelector(".option-sim-value");
+        if (valueEl) {
+          valueEl.textContent = `${entry.scoreValue.toFixed(1)}/10`;
+        }
+      });
+      if (bestCard) {
+        bestCard.classList.add("is-sim-best");
+      }
+    }
+  }
+
+  function simulateHoverMetrics(optionText, baseMetrics) {
+    const text = (optionText || "").toLowerCase();
+    const next = { ...baseMetrics };
+    const adjust = (key, delta) => {
+      next[key] = clampMetric((next[key] || 3) + delta);
+    };
+    if (/ultim[aá]tum|forzar|exigir|imponer/.test(text)) {
+      adjust("risk", 1);
+      adjust("urgency", 1);
+    }
+    if (/esperar|pausar|diferir|posponer|dejar pasar/.test(text)) {
+      adjust("urgency", -1);
+      adjust("inactionCost", 1);
+    }
+    if (/documentar|definir l[ií]mites|acuerdo|por escrito/.test(text)) {
+      adjust("ambiguity", -1);
+      adjust("risk", -1);
+    }
+    if (/reuni[oó]n|llamada|alinear/.test(text)) {
+      adjust("ambiguity", -1);
+    }
+    return next;
+  }
+
+  function attachOptionHoverSim() {
+    if (!optionsListEl) return;
+    const cards = optionsListEl.querySelectorAll(".option-card");
+    cards.forEach(card => {
+      const optionText = card.dataset.optionText || "";
+      card.addEventListener("mouseenter", () => {
+        if (!window.matchMedia("(min-width: 1024px)").matches) return;
+        hoverSimMetrics = simulateHoverMetrics(optionText, getCurrentMetrics());
+        updateRadar();
+      });
+      card.addEventListener("mouseleave", () => {
+        hoverSimMetrics = null;
+        updateRadar();
+      });
+    });
+  }
+
+  function parseLevelKeyword(text) {
+    if (!text) return null;
+    const lower = text.toLowerCase();
+    if (lower.includes("muy alto") || lower.includes("crítico")) return 5;
+    if (lower.includes("alto")) return 4;
+    if (lower.includes("medio") || lower.includes("media")) return 3;
+    if (lower.includes("bajo") || lower.includes("baja")) return 2;
+    return null;
+  }
+
+  function deriveMetricsFromAnalysis(analysisText) {
+    const defaults = {
+      risk: 3,
+      urgency: 3,
+      ambiguity: 3,
+      inactionCost: 3
+    };
+    if (!analysisText) return defaults;
+    const normalized = analysisText.replace(/\r\n/g, "\n");
+    const lectura = findSectionText(
+      normalized,
+      /Lectura r[áa]pida/i,
+      [/Qu[eé]\s+est[aá]\s+pasando/i, /Estrategia/i, /Opc[ií]ón\s*[A-C]/i]
+    );
+    const combined = `${lectura}\n${normalized}`.toLowerCase();
+    const metrics = { ...defaults };
+
+    if (lectura) {
+      const lines = lectura.split("\n").map(line => line.trim()).filter(Boolean);
+      lines.forEach(line => {
+        if (/riesgo/i.test(line)) {
+          const level = parseLevelKeyword(line);
+          if (level) metrics.risk = level;
+        }
+        if (/ambig[uü]edad|incertidumbre/i.test(line)) {
+          const level = parseLevelKeyword(line);
+          if (level) metrics.ambiguity = level;
+        }
+        if (/urgencia|urgente/i.test(line)) {
+          const level = parseLevelKeyword(line);
+          if (level) metrics.urgency = level;
+        }
+        if (/costo|coste|p[eé]rdida|consecuencia/i.test(line)) {
+          const level = parseLevelKeyword(line);
+          if (level) metrics.inactionCost = level;
+        }
+      });
+    }
+
+    if (metrics.urgency === defaults.urgency && /urgente|inmediato|ahora|ya\b/i.test(combined)) {
+      metrics.urgency = 4;
+    }
+    if (metrics.ambiguity === defaults.ambiguity && /incertidumbre|ambigu|no est[aá] claro|difuso/i.test(combined)) {
+      metrics.ambiguity = 4;
+    }
+    if (metrics.risk === defaults.risk && /riesgo|p[eé]rdida|expuesto|grave/i.test(combined)) {
+      metrics.risk = 4;
+    }
+    if (metrics.inactionCost === defaults.inactionCost && /coste|costo|p[eé]rdida|consecuencia/i.test(combined)) {
+      metrics.inactionCost = 4;
+    }
+
+    return {
+      risk: clampMetric(metrics.risk),
+      urgency: clampMetric(metrics.urgency),
+      ambiguity: clampMetric(metrics.ambiguity),
+      inactionCost: clampMetric(metrics.inactionCost)
+    };
+  }
+
+  function computeConfidence(metrics) {
+    if (!metrics) return 70;
+    const control = clampMetric(6 - metrics.risk);
+    const clarity = clampMetric(6 - metrics.ambiguity);
+    const urgencyFactor = metrics.urgency >= 4 ? 1.05 : 0.95;
+    const base = (control * 12) + (clarity * 12) + (metrics.inactionCost * 6);
+    const raw = Math.round((base / 5) * urgencyFactor);
+    return Math.min(92, Math.max(58, raw));
+  }
+
+  function detectFramework(analysisText, context) {
+    const normalized = (analysisText || "").toLowerCase();
+    if (context === "Negociación") return "Negociación Harvard";
+    if (/urgente|inmediato|ahora|ya\b/.test(normalized)) return "Eisenhower";
+    if (/trade-?off|compensar|equilibrar|tensi[oó]n|riesgo.*beneficio/.test(normalized)) {
+      return "Teoría de juegos";
+    }
+    if (/pareto|80\/20/.test(normalized)) return "Pareto";
+    return "Principios de claridad operativa";
+  }
+
+  function explainMetric(metricKey, analysisText, optionTexts, metrics) {
+    const level = metrics?.[metricKey] ?? 3;
+    const normalized = `${analysisText || ""}\n${(optionTexts || []).join("\n")}`.toLowerCase();
+    const keywordMap = {
+      risk: ["riesgo", "pérdida", "exposición", "consecuencia", "grave", "crítico"],
+      urgency: ["urgente", "inmediato", "ahora", "ya", "plazo", "deadline"],
+      ambiguity: ["ambigü", "incierto", "no claro", "difuso", "interpretación"],
+      inactionCost: ["costo", "coste", "pérdida", "oportunidad", "consecuencia", "dejar pasar"]
+    };
+    const hits = (keywordMap[metricKey] || []).filter(word => normalized.includes(word));
+    const levelBand = level >= 4 ? "alta" : level <= 2 ? "baja" : "media";
+    const signalMap = {
+      risk: "Define límites explícitos y documenta acuerdos para reducir exposición.",
+      urgency: "Pide fecha clara y un siguiente paso concreto para ajustar urgencia.",
+      ambiguity: "Alinea definiciones clave y confirma por escrito para reducir ambigüedad.",
+      inactionCost: "Estima costo de oportunidad y comunica impacto si no se actúa."
+    };
+    const bullets = [];
+    if (level >= 4) {
+      bullets.push(`Se detectan señales de ${hits[0] || "exposición"} en el análisis.`);
+      bullets.push("El impacto potencial afecta control y reputación del movimiento.");
+    } else if (level <= 2) {
+      bullets.push("La situación luce contenida y con margen de maniobra.");
+      bullets.push("Hay elementos que permiten sostener el ritmo sin presión excesiva.");
+    } else {
+      bullets.push("Existen señales mixtas que requieren monitoreo cercano.");
+      bullets.push("El balance actual sugiere actuar con cautela y claridad.");
+    }
+    return {
+      bullets,
+      signal: signalMap[metricKey] || "Clarifica el siguiente paso para ajustar el nivel."
+    };
+  }
+
+  function scoreOptionHeuristics(optionBodyText, metrics) {
+    const text = (optionBodyText || "").toLowerCase();
+    const scores = {
+      risk: clampMetric(metrics?.risk ?? 3),
+      time: 3,
+      control: clampMetric(6 - (metrics?.risk ?? 3)),
+      benefit: 3
+    };
+    if (/inmediato|ahora|ya\b|urgente/.test(text)) scores.time = 5;
+    if (/esperar|pausar|diferir|posponer/.test(text)) scores.time = 2;
+    if (/reuni[oó]n|llamada|email|documento|definir|l[ií]mite|acuerdo|negociar/.test(text)) {
+      scores.control = clampMetric(scores.control + 1);
+    }
+    if (/arriesg|exponer|ultim[aá]tum|conflicto/.test(text)) {
+      scores.risk = clampMetric(scores.risk + 1);
+    }
+    if (/clarifica|protege|avanza|resolver|asegura|fortalece/.test(text)) {
+      scores.benefit = clampMetric(scores.benefit + 1);
+    }
+    return scores;
+  }
+
+  function generateDeliverable(type, situationText, optionTitle, optionBody, context) {
+    const situation = (situationText || "").trim();
+    const title = optionTitle || "Movimiento";
+    const body = (optionBody || "").trim();
+    if (type === "email") {
+      const contextLine = trimToSentences(situation, 1);
+      const bodyLines = trimToSentences(body, 3) || body;
+      const contextBlock = contextLine ? `${contextLine}\n` : "";
+      return [
+        `Asunto: ${title} — propuesta concreta`,
+        "Hola <Nombre>,",
+        "Gracias por la propuesta. Para avanzar, propongo esto:",
+        `${contextBlock}${bodyLines}`,
+        "Próximos pasos:",
+        "• Si les hace sentido, coordinemos una llamada de 20–30 min para revisarlo.",
+        "• Luego enviamos un borrador de términos (term sheet) con los ajustes acordados.",
+        "Saludos,",
+        "<Tu nombre>"
+      ].join("\n");
+    }
+    const checklistItems = [
+      `Releer contexto: ${trimToSentences(situation, 1) || "Situación actual"}.`,
+      `Definir objetivo del movimiento (${title}).`,
+      "Redactar mensaje breve con límites y próximos pasos.",
+      "Identificar riesgos clave y mitigaciones.",
+      `Acordar canal y timing (${context || "General"}).`,
+      "Enviar y confirmar recepción."
+    ];
+    return checklistItems.slice(0, 7).map(item => `• ${item}`).join("\n");
+  }
+
+  function buildDecisionDashboard(metrics, context = "General", analysisText = "", optionTexts = []) {
+    const dashboard = document.createElement("div");
+    dashboard.className = "dashboard-card";
+
+    const title = document.createElement("div");
+    title.className = "dashboard-title";
+    title.textContent = "Decision Dashboard";
+    dashboard.appendChild(title);
+
+    const modeRow = document.createElement("div");
+    modeRow.className = "dashboard-mode";
+
+    const modeLabel = document.createElement("div");
+    modeLabel.textContent = "Modo:";
+    modeRow.appendChild(modeLabel);
+
+    const toggleWrap = document.createElement("div");
+    toggleWrap.className = "pill-toggle-group";
+
+    const autoBtn = document.createElement("button");
+    autoBtn.type = "button";
+    autoBtn.className = "pill-toggle is-active";
+    autoBtn.textContent = "Auto";
+    autoBtn.dataset.mode = "auto";
+
+    const whatIfBtn = document.createElement("button");
+    whatIfBtn.type = "button";
+    whatIfBtn.className = "pill-toggle";
+    whatIfBtn.textContent = "What-if";
+    whatIfBtn.dataset.mode = "what-if";
+
+    const simTag = document.createElement("span");
+    simTag.className = "sim-tag";
+    simTag.textContent = "Simulación activa";
+    simTag.style.display = "none";
+
+    toggleWrap.appendChild(autoBtn);
+    toggleWrap.appendChild(whatIfBtn);
+    modeRow.appendChild(toggleWrap);
+    modeRow.appendChild(simTag);
+    dashboard.appendChild(modeRow);
+
+    const rows = [
+      { key: "risk", label: "Riesgo", gender: "m" },
+      { key: "urgency", label: "Urgencia", gender: "f" },
+      { key: "ambiguity", label: "Ambigüedad", gender: "f" },
+      { key: "inactionCost", label: "Costo de no actuar", gender: "m" }
+    ];
+
+    if (!dashboardState.autoMetrics) {
+      dashboardState.autoMetrics = { ...metrics };
+    }
+    if (!dashboardState.activeMetrics) {
+      dashboardState.activeMetrics = { ...metrics };
+    }
+
+    const updateRow = (rowEl, level, gender) => {
+      const barFill = rowEl.querySelector(".metric-bar-fill");
+      const levelEl = rowEl.querySelector(".metric-level");
+      const slider = rowEl.querySelector("input[type='range']");
+      if (barFill) {
+        barFill.style.width = `${(level / 5) * 100}%`;
+        barFill.dataset.level = String(level);
+      }
+      if (levelEl) {
+        levelEl.textContent = levelTextFor(gender, level);
+      }
+      if (slider) {
+        slider.value = level;
+      }
+    };
+
+    const setMode = (mode) => {
+      dashboardState.mode = mode;
+      autoBtn.classList.toggle("is-active", mode === "auto");
+      whatIfBtn.classList.toggle("is-active", mode === "what-if");
+      simTag.style.display = mode === "what-if" ? "inline-flex" : "none";
+      const sliders = dashboard.querySelectorAll("input[type='range']");
+      sliders.forEach(slider => {
+        slider.disabled = mode === "auto";
+      });
+      if (mode === "auto" && dashboardState.autoMetrics) {
+        dashboardState.activeMetrics = { ...dashboardState.autoMetrics };
+        rows.forEach(row => {
+          const rowEl = dashboard.querySelector(`.metric-row[data-key='${row.key}']`);
+          if (rowEl) {
+            updateRow(rowEl, dashboardState.activeMetrics[row.key], row.gender);
+          }
+        });
+      }
+      updateTrustRow(dashboardState.activeMetrics || metrics, analysisText, context);
+      updateRadar();
+    };
+
+    rows.forEach((row) => {
+      const level = metrics[row.key];
+      const rowEl = document.createElement("div");
+      rowEl.className = "metric-row is-clickable";
+      rowEl.dataset.key = row.key;
+      rowEl.tabIndex = 0;
+
+      const label = document.createElement("div");
+      label.className = "metric-label";
+      label.textContent = row.label;
+
+      const indicator = document.createElement("div");
+      indicator.className = "metric-indicator";
+
+      const bar = document.createElement("div");
+      bar.className = "metric-bar";
+      const barFill = document.createElement("div");
+      barFill.className = "metric-bar-fill";
+      bar.appendChild(barFill);
+
+      const slider = document.createElement("input");
+      slider.type = "range";
+      slider.min = 1;
+      slider.max = 5;
+      slider.step = 1;
+      slider.value = level;
+      slider.disabled = dashboardState.mode === "auto";
+
+      const levelEl = document.createElement("div");
+      levelEl.className = "metric-level";
+      levelEl.textContent = `${levelTextFor(row.gender, level)}`;
+
+      indicator.appendChild(bar);
+      indicator.appendChild(slider);
+      indicator.appendChild(levelEl);
+
+      const explain = document.createElement("div");
+      explain.className = "metric-explain";
+
+      const renderExplain = () => {
+        const details = explainMetric(row.key, analysisText, optionTexts, dashboardState.activeMetrics || metrics);
+        explain.innerHTML = "";
+        const bullets = document.createElement("ul");
+        details.bullets.forEach(item => {
+          const li = document.createElement("li");
+          li.textContent = item;
+          bullets.appendChild(li);
+        });
+        const signal = document.createElement("div");
+        signal.className = "metric-signal";
+        signal.textContent = details.signal;
+        explain.appendChild(bullets);
+        explain.appendChild(signal);
+      };
+
+      rowEl.addEventListener("click", () => {
+        renderExplain();
+        explain.classList.toggle("is-open");
+      });
+      rowEl.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          rowEl.click();
+        }
+      });
+
+      slider.addEventListener("input", (event) => {
+        if (dashboardState.mode !== "what-if") return;
+        const value = parseInt(event.target.value, 10);
+        if (!dashboardState.activeMetrics) {
+          dashboardState.activeMetrics = { ...metrics };
+        }
+        dashboardState.activeMetrics[row.key] = clampMetric(value);
+        updateRow(rowEl, dashboardState.activeMetrics[row.key], row.gender);
+        updateTrustRow(dashboardState.activeMetrics, analysisText, context);
+        if (compareState.render) {
+          compareState.render();
+        }
+        updateRadar();
+      });
+      slider.addEventListener("click", (event) => {
+        event.stopPropagation();
+      });
+
+      updateRow(rowEl, level, row.gender);
+
+      rowEl.appendChild(label);
+      rowEl.appendChild(indicator);
+      dashboard.appendChild(rowEl);
+      dashboard.appendChild(explain);
+    });
+
+    autoBtn.addEventListener("click", () => setMode("auto"));
+    whatIfBtn.addEventListener("click", () => setMode("what-if"));
+
+    setMode(dashboardState.mode || "auto");
+    return dashboard;
+  }
+
+  function createTrustRow() {
+    const row = document.createElement("div");
+    row.className = "trust-row";
+    const confidence = document.createElement("div");
+    confidence.className = "trust-pill meta-item";
+    confidence.dataset.tooltip =
+      "Nivel de certeza de la IA basado en la claridad de la información provista.";
+    const confidenceLabel = document.createElement("span");
+    confidenceLabel.textContent = "Confianza";
+    const confidenceInfo = document.createElement("span");
+    confidenceInfo.className = "meta-info";
+    confidenceInfo.textContent = "i";
+    const confidenceValue = document.createElement("span");
+    confidenceValue.className = "meta-value";
+    confidenceValue.textContent = "70%";
+    confidence.appendChild(confidenceLabel);
+    confidence.appendChild(confidenceInfo);
+    confidence.appendChild(confidenceValue);
+
+    const framework = document.createElement("div");
+    framework.className = "trust-pill meta-item";
+    framework.dataset.tooltip =
+      "Modelo mental utilizado (ej. Costo-Beneficio, Principio de Pareto) para el análisis.";
+    const frameworkLabel = document.createElement("span");
+    frameworkLabel.textContent = "Marco";
+    const frameworkInfo = document.createElement("span");
+    frameworkInfo.className = "meta-info";
+    frameworkInfo.textContent = "i";
+    const frameworkValue = document.createElement("span");
+    frameworkValue.className = "meta-value";
+    frameworkValue.textContent = "Principios de claridad operativa";
+    framework.appendChild(frameworkLabel);
+    framework.appendChild(frameworkInfo);
+    framework.appendChild(frameworkValue);
+    row.appendChild(confidence);
+    row.appendChild(framework);
+    return { row, confidence, framework };
+  }
+
+  function updateTrustRow(metrics, analysisText, context) {
+    if (!trustRowEl) return;
+    const confidenceEl = trustRowEl.querySelector(".trust-pill");
+    const frameworkEl = trustRowEl.querySelectorAll(".trust-pill")[1];
+    if (confidenceEl) {
+      const confidence = computeConfidence(metrics);
+      const valueEl = confidenceEl.querySelector(".meta-value");
+      if (valueEl) {
+        valueEl.textContent = `${confidence}%`;
+      }
+    }
+    if (frameworkEl) {
+      const valueEl = frameworkEl.querySelector(".meta-value");
+      if (valueEl) {
+        valueEl.textContent = detectFramework(analysisText, context);
+      }
+    }
+  }
+
+  function ensureModal() {
+    if (modalBackdropEl) return;
+    modalBackdropEl = document.createElement("div");
+    modalBackdropEl.className = "modal-backdrop";
+    modalBackdropEl.innerHTML = `
+      <div class="modal" role="dialog" aria-modal="true">
+        <div class="modal-header"></div>
+        <textarea readonly></textarea>
+        <div class="modal-actions">
+          <button type="button" class="modal-copy">Copiar</button>
+          <button type="button" class="modal-close">Cerrar</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modalBackdropEl);
+    modalTitleEl = modalBackdropEl.querySelector(".modal-header");
+    modalTextareaEl = modalBackdropEl.querySelector("textarea");
+    modalCopyBtn = modalBackdropEl.querySelector(".modal-copy");
+    modalCloseBtn = modalBackdropEl.querySelector(".modal-close");
+
+    modalBackdropEl.addEventListener("click", (event) => {
+      if (event.target === modalBackdropEl) {
+        closeModal();
+      }
+    });
+    modalCloseBtn.addEventListener("click", closeModal);
+    modalCopyBtn.addEventListener("click", async () => {
+      if (!modalTextareaEl) return;
+      try {
+        await navigator.clipboard.writeText(modalTextareaEl.value);
+      } catch (error) {
+        console.error(error);
+      }
+    });
+  }
+
+  function openModal(title, content) {
+    ensureModal();
+    if (modalTitleEl) modalTitleEl.textContent = title;
+    if (modalTextareaEl) modalTextareaEl.value = content;
+    if (modalBackdropEl) modalBackdropEl.classList.add("is-open");
+  }
+
+  function closeModal() {
+    if (modalBackdropEl) {
+      modalBackdropEl.classList.remove("is-open");
+    }
+  }
+
+  function extractSubInsight(analysisText, context) {
+    const fallbacks = {
+      "Negociación": "El riesgo es el precedente, no el número.",
+      "Trabajo / Política interna": "La ambigüedad está debilitando el control.",
+      "Cliente / Ventas": "El marco acordado está siendo probado.",
+      "Carrera / Oferta laboral": "Decidir tarde también es una decisión.",
+      "General": "Lo crítico es el marco, no el detalle."
+    };
+    if (analysisText) {
+      const normalized = analysisText.replace(/\r\n/g, "\n");
+      const pasando = findSectionText(
+        normalized,
+        /Qu[eé]\s+est[aá]\s+pasando/i,
+        [/Estrategia/i, /Opc[ií]ón\s*[A-C]/i]
+      );
+      const lectura = findSectionText(
+        normalized,
+        /Lectura r[áa]pida/i,
+        [/Qu[eé]\s+est[aá]\s+pasando/i, /Estrategia/i]
+      );
+      const candidate = extractFirstSentence(pasando || lectura);
+      if (candidate) {
+        return candidate.length > 110 ? `${candidate.slice(0, 107).trim()}…` : candidate;
+      }
+    }
+    return fallbacks[context] || fallbacks.General;
+  }
+
+  function extractAppleInsight(rawAnalysisText) {
+    const fallback =
+      "Esta situación no está definida. Eso, en sí mismo, ya es una decisión.";
+    try {
+      if (!rawAnalysisText) return fallback;
+      const normalized = rawAnalysisText.replace(/\r\n/g, "\n").trim();
+      if (!normalized) return fallback;
+      const lecturaSection = findSectionText(
+        normalized,
+        /Lectura r[áa]pida/i,
+        [/Qu[eé]\s+est[aá]\s+pasando/i, /Estrategia/i, /Opc[ií]ón\s*[A-C]/i]
+      );
+      if (lecturaSection) {
+        const sentence = extractFirstSentence(lecturaSection);
+        if (sentence) return sentence;
+      }
+      const pasandoSection = findSectionText(
+        normalized,
+        /Qu[eé]\s+est[aá]\s+pasando/i,
+        [/Estrategia/i, /Opc[ií]ón\s*[A-C]/i]
+      );
+      if (pasandoSection) {
+        const sentence = extractFirstSentence(pasandoSection);
+        if (sentence) return sentence;
+      }
+      return fallback;
+    } catch (error) {
+      console.error(error);
+      return fallback;
+    }
+  }
+
+  function extractTradeoffLine(text) {
+    const clean = text.replace(/\r\n/g, "\n").trim();
+    if (!clean) return "";
+    const lines = clean.split("\n").map(line => line.trim()).filter(Boolean);
+    if (lines.length > 1) {
+      return lines[0].slice(0, 120);
+    }
+    const sentences = clean.split(/(?<=[.!?])\s+/).filter(Boolean);
+    if (sentences.length > 1) {
+      return sentences[0].trim().slice(0, 120);
+    }
+    return "";
+  }
+
+  function deriveGainsLosses(optionText, label, context) {
+    if (!optionText) return { gains: [], losses: [] };
+    const cleaned = optionText
+      .replace(/\r\n/g, "\n")
+      .replace(/^opci[oó]n\s*[A-C]\s*[:\-–—]\s*/i, "")
+      .trim();
+    if (!cleaned) return { gains: [], losses: [] };
+
+    const contextTokens = (context || "")
+      .toLowerCase()
+      .split(/\s+/)
+      .map(token => token.trim())
+      .filter(token => token.length > 2);
+
+    const sentences = cleaned
+      .split(/(?<=[.!?])\s+/)
+      .map(sentence => sentence.trim())
+      .filter(Boolean);
+
+    const contextSentences = [];
+    const otherSentences = [];
+    sentences.forEach(sentence => {
+      const lower = sentence.toLowerCase();
+      if (contextTokens.length && contextTokens.some(token => lower.includes(token))) {
+        contextSentences.push(sentence);
+      } else {
+        otherSentences.push(sentence);
+      }
+    });
+
+    const orderedSentences = contextSentences.concat(otherSentences);
+    const gains = [];
+    const losses = [];
+    const seen = new Set();
+
+    const cleanClause = clause => clause
+      .replace(/^[,;:\-–—\s]+/, "")
+      .replace(/\b(y|adem[aá]s|pero|aunque|sin embargo|no obstante|aun as[ií]|a cambio de|a costa de)\b/i, "")
+      .replace(/[.,;:\s]+$/g, "")
+      .trim();
+
+    const pushUnique = (arr, clause) => {
+      const trimmed = cleanClause(clause);
+      if (!trimmed) return;
+      const key = trimmed.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      arr.push(trimmed);
+    };
+
+    const contrastRegex = /\b(pero|aunque|sin embargo|no obstante|aun as[ií]|a cambio de|a costa de|con el riesgo de)\b/i;
+    const gainSignals = /\b(permite|logras|ayuda|mantiene|protege|abre|recupera|aclara|ordena|cuida|prioriza|facilita|asegura|fortalece|defiende|evita)\b/i;
+    const lossSignals = /\b(riesgo|coste|costo|sacrific|expon|fricci[oó]n|conflicto|tensi[oó]n|ambig[uü]edad|incertidumbre|demora|espera|renuncia|cede|ceder|p[ií]erde|perder)\b/i;
+
+    orderedSentences.forEach(sentence => {
+      const contrastMatch = sentence.match(contrastRegex);
+      if (contrastMatch) {
+        const before = sentence.slice(0, contrastMatch.index).trim();
+        const after = sentence.slice(contrastMatch.index + contrastMatch[0].length).trim();
+        if (before) pushUnique(gains, before);
+        if (after) pushUnique(losses, after);
+        return;
+      }
+      if (gainSignals.test(sentence)) {
+        pushUnique(gains, sentence);
+      }
+      if (lossSignals.test(sentence)) {
+        pushUnique(losses, sentence);
+      }
+    });
+
+    if (!gains.length && orderedSentences.length) {
+      const firstClause = orderedSentences[0].split(/[;:]/)[0];
+      pushUnique(gains, firstClause);
+    }
+
+    return {
+      gains: gains.slice(0, 2),
+      losses: losses.slice(0, 1)
+    };
+  }
+
+  function buildStrategicOptionCopy(optionText, optionLabel, context) {
+    if (!optionText) return "";
+    const { body } = extractOptionTitleAndBody(optionText);
+    let cleaned = body.replace(/\r\n/g, "\n").trim();
+    cleaned = cleaned.replace(/^opci[oó]n\s*[A-C]\s*[:\-–—]\s*/i, "").trim();
+    cleaned = stripTradeoffPrefix(cleaned);
+    const baseSentence = trimToSentences(cleaned, 2) || cleaned;
+    const tradeoff = deriveGainsLosses(cleaned, optionLabel, context);
+    const gain = tradeoff.gains[0] || "reforzar control y claridad";
+    const loss = tradeoff.losses[0] || "tolerar fricción y esfuerzo adicional";
+    const lower = cleaned.toLowerCase();
+    const horizon = /inmediato|ahora|ya\b|urgente|esta semana/.test(lower)
+      ? "corto plazo"
+      : /meses|trimestre|mediano plazo|sostenid|progresiv/.test(lower)
+        ? "mediano plazo"
+        : "plazo no inmediato";
+    const contextual = context ? ` en el contexto de ${context.toLowerCase()}` : "";
+    return [
+      `La acción implica ${baseSentence}${baseSentence.endsWith(".") ? "" : "."}`,
+      `Este movimiento busca ${gain}${contextual}, pero exige aceptar ${loss} en el ${horizon}.`
+    ].join(" ");
+  }
+
+  function stripTradeoffPrefix(text) {
+    if (!text) return "";
+    return text.replace(/(^|\n)\s*trade[-\s]?off\s*:\s*/gmi, "$1").trim();
+  }
+
+  function extractOptionTitleAndBody(optionText) {
+    const fallbackTitle = "Movimiento propuesto";
+    if (!optionText) {
+      return { title: fallbackTitle, body: "" };
+    }
+    const normalized = optionText.replace(/\r\n/g, "\n").trim();
+    const lines = normalized.split("\n");
+    let title = fallbackTitle;
+    let foundTitle = false;
+    const bodyLines = [];
+    lines.forEach((line) => {
+      if (!foundTitle) {
+        const match = line.match(/^\s*T[IÍ]TULO\s*:\s*(.*)$/i);
+        if (match) {
+          const candidate = match[1].trim();
+          if (candidate) {
+            title = candidate;
+          }
+          foundTitle = true;
+          return;
+        }
+      }
+      bodyLines.push(line);
+    });
+    const body = stripTradeoffPrefix(bodyLines.join("\n").trim());
+    return { title, body };
+  }
+
+  function addAssistantResponse(analysisText, options, recommendation, detectedContext) {
+    try {
+      const resolvedContext = detectedContext || "General";
+      lastAnalysisText = analysisText || "";
+      lastOptionTexts = (options || []).map(option => option.text);
+      if (insightTextEl) {
+        insightTextEl.textContent = extractAppleInsight(analysisText || "");
+      }
+      if (insightSubtextEl) {
+        insightSubtextEl.textContent = extractSubInsight(analysisText || "", resolvedContext);
+      }
+      if (insightContextEl) {
+        insightContextEl.textContent = `Contexto: ${resolvedContext}`;
+      }
+      if (dashboardEl) {
+        const metrics = deriveMetricsFromAnalysis(analysisText || "");
+        dashboardState.autoMetrics = { ...metrics };
+        dashboardState.activeMetrics = { ...metrics };
+        dashboardState.mode = "auto";
+        const nextDashboard = buildDecisionDashboard(metrics, resolvedContext, analysisText || "", lastOptionTexts);
+        dashboardEl.replaceWith(nextDashboard);
+        dashboardEl = nextDashboard;
+        dashboardEl.style.display = analysisText ? "flex" : "none";
+        updateTrustRow(metrics, analysisText || "", resolvedContext);
+        updateRadar();
+      }
+      if (trustRowEl) {
+        trustRowEl.style.display = analysisText ? "flex" : "none";
+      }
+      if (summaryBlocksEl) {
+        summaryBlocksEl.innerHTML = "";
+        if (analysisText) {
+          const sections = extractAnalysisSections(analysisText);
+          if (sections) {
+            const lectura = sections.find(section => /lectura r[áa]pida/i.test(section.title));
+            const pasando = sections.find(section => /qu[eé]\s+est[aá]\s+pasando/i.test(section.title));
+            const estrategia = sections.find(section => /estrategia/i.test(section.title));
+            if (pasando && pasando.body) {
+              const block = document.createElement("div");
+              block.className = "summary-block";
+              const title = document.createElement("div");
+              title.className = "summary-title";
+              title.textContent = "Qué está pasando";
+              const body = document.createElement("div");
+              body.className = "summary-body";
+              body.textContent = trimToSentences(pasando.body, 2) || pasando.body;
+              block.appendChild(title);
+              block.appendChild(body);
+              summaryBlocksEl.appendChild(block);
+            }
+            if (lectura && lectura.body) {
+              const block = document.createElement("div");
+              block.className = "summary-block";
+              const title = document.createElement("div");
+              title.className = "summary-title";
+              title.textContent = "Lectura rápida";
+              const body = document.createElement("div");
+              body.className = "summary-body";
+              body.textContent = trimToSentences(lectura.body, 2) || lectura.body;
+              block.appendChild(title);
+              block.appendChild(body);
+              summaryBlocksEl.appendChild(block);
+            }
+            if (estrategia && estrategia.body) {
+              const block = document.createElement("div");
+              block.className = "summary-block";
+              const title = document.createElement("div");
+              title.className = "summary-title";
+              title.textContent = "Marco estratégico";
+              const body = document.createElement("div");
+              body.className = "summary-body";
+              const list = document.createElement("ul");
+              extractBulletCandidates(estrategia.body).slice(0, 3).forEach((item) => {
+                const li = document.createElement("li");
+                li.textContent = item;
+                list.appendChild(li);
+              });
+              if (list.children.length) {
+                body.appendChild(list);
+              } else {
+                body.textContent = estrategia.body;
+              }
+              block.appendChild(title);
+              block.appendChild(body);
+              summaryBlocksEl.appendChild(block);
+            }
+          }
+        }
+        summaryBlocksEl.style.display = analysisText ? "flex" : "none";
+      }
+      if (analysisPanelEl) {
+        analysisPanelEl.innerHTML = "";
+        if (analysisText) {
+          analysisPanelEl.appendChild(buildUserMessageCard(lastUserText || ""));
+        }
+      }
+      if (reasoningToggleEl) {
+        reasoningToggleEl.style.display = analysisText ? "inline-flex" : "none";
+      }
+      if (analysisWrapEl) {
+        analysisWrapEl.style.display = analysisText ? "flex" : "none";
+      }
+
+      if (!optionsListEl) return;
+      const hasAnalysis = Boolean(analysisText);
+      optionsListEl.innerHTML = "";
+      const optionOrder = ["B", "A", "C"];
+      const normalizedRecommendation = recommendation && ["A", "B", "C"].includes(recommendation)
+        ? recommendation
+        : null;
+      const resolvedOrder = normalizedRecommendation
+        ? [normalizedRecommendation, ...optionOrder.filter(label => label !== normalizedRecommendation)]
+        : optionOrder;
+      const displayOptions = resolvedOrder
+        .map(label => options.find(option => option.label === label))
+        .filter(Boolean);
+      compareState.selected = [];
+      compareState.options = displayOptions.map((option, index) => {
+        const { title: dynamicTitle, body: optionBodyText } = extractOptionTitleAndBody(option.text);
+        return {
+          id: `option-${index + 1}`,
+          label: option.label,
+          displayIndex: index + 1,
+          title: dynamicTitle,
+          body: optionBodyText
+        };
+      });
+
+      if (compareControlsEl) {
+        compareControlsEl.innerHTML = "";
+        compareControlsEl.style.display = hasAnalysis ? "flex" : "none";
+        if (hasAnalysis) {
+          const compareLabel = document.createElement("div");
+          compareLabel.className = "compare-label";
+          compareLabel.textContent = "Comparar:";
+          compareControlsEl.appendChild(compareLabel);
+
+          compareState.options.forEach(option => {
+            const compareItem = document.createElement("label");
+            compareItem.className = "compare-item";
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.value = option.id;
+            const span = document.createElement("span");
+            span.textContent = `Opción ${option.displayIndex}`;
+            compareItem.appendChild(checkbox);
+            compareItem.appendChild(span);
+            compareControlsEl.appendChild(compareItem);
+
+            checkbox.addEventListener("change", () => {
+              if (checkbox.checked && compareState.selected.length >= 2) {
+                checkbox.checked = false;
+                return;
+              }
+              if (checkbox.checked) {
+                compareState.selected.push(option.id);
+              } else {
+                compareState.selected = compareState.selected.filter(id => id !== option.id);
+              }
+              renderCompareTable();
+            });
+          });
+        }
+      }
+      if (compareCardEl) {
+        compareCardEl.innerHTML = "";
+        compareCardEl.style.display = "none";
+      }
+      if (compareWrapEl) {
+        compareWrapEl.style.display = hasAnalysis ? "block" : "none";
+      }
+
+      const renderCompareTable = () => {
+        if (!compareCardEl) return;
+        if (compareState.selected.length !== 2) {
+          compareCardEl.style.display = "none";
+          compareCardEl.innerHTML = "";
+          return;
+        }
+        const selectedOptions = compareState.options.filter(option =>
+          compareState.selected.includes(option.id)
+        );
+        compareCardEl.innerHTML = "";
+        compareCardEl.style.display = "block";
+        const table = document.createElement("table");
+        table.className = "compare-table";
+        const thead = document.createElement("thead");
+        const headRow = document.createElement("tr");
+        headRow.innerHTML = `
+          <th></th>
+          <th>Opción ${selectedOptions[0].displayIndex}</th>
+          <th>Opción ${selectedOptions[1].displayIndex}</th>
+        `;
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement("tbody");
+        const buildRow = (label, leftContent, rightContent) => {
+          const tr = document.createElement("tr");
+          const th = document.createElement("th");
+          th.textContent = label;
+          const tdLeft = document.createElement("td");
+          tdLeft.appendChild(leftContent);
+          const tdRight = document.createElement("td");
+          tdRight.appendChild(rightContent);
+          tr.appendChild(th);
+          tr.appendChild(tdLeft);
+          tr.appendChild(tdRight);
+          return tr;
+        };
+
+        const buildList = (items) => {
+          const ul = document.createElement("ul");
+          items.forEach(item => {
+            const li = document.createElement("li");
+            li.textContent = item;
+            ul.appendChild(li);
+          });
+          return ul;
+        };
+
+        const leftTradeoff = deriveGainsLosses(selectedOptions[0].body, selectedOptions[0].label, resolvedContext);
+        const rightTradeoff = deriveGainsLosses(selectedOptions[1].body, selectedOptions[1].label, resolvedContext);
+
+        const leftScores = scoreOptionHeuristics(selectedOptions[0].body, dashboardState.activeMetrics);
+        const rightScores = scoreOptionHeuristics(selectedOptions[1].body, dashboardState.activeMetrics);
+
+        tbody.appendChild(buildRow("Movimiento", document.createTextNode(selectedOptions[0].title), document.createTextNode(selectedOptions[1].title)));
+        tbody.appendChild(buildRow("Ganas", buildList(leftTradeoff.gains.slice(0, 2)), buildList(rightTradeoff.gains.slice(0, 2))));
+        tbody.appendChild(buildRow("Pierdes", buildList(leftTradeoff.losses.slice(0, 1)), buildList(rightTradeoff.losses.slice(0, 1))));
+        tbody.appendChild(buildRow("Riesgo estimado", document.createTextNode(levelText(leftScores.risk)), document.createTextNode(levelText(rightScores.risk))));
+        tbody.appendChild(buildRow("Tiempo", document.createTextNode(levelText(leftScores.time)), document.createTextNode(levelText(rightScores.time))));
+        tbody.appendChild(buildRow("Control", document.createTextNode(levelText(leftScores.control)), document.createTextNode(levelText(rightScores.control))));
+
+        table.appendChild(tbody);
+        compareCardEl.appendChild(table);
+      };
+      compareState.render = renderCompareTable;
+
+      displayOptions.forEach((option, index) => {
+        const { title: dynamicTitle, body: optionBodyText } = extractOptionTitleAndBody(option.text);
+        const displayIndex = index + 1;
+        const card = document.createElement("div");
+        card.className = "option-card";
+        card.dataset.label = option.label;
+        card.dataset.optionText = optionBodyText;
+        if (normalizedRecommendation && option.label === normalizedRecommendation) {
+          card.classList.add("is-recommended");
+        }
+
+        const header = document.createElement("div");
+        header.className = "option-header";
+
+        const titleWrap = document.createElement("div");
+        titleWrap.className = "option-title-wrap";
+
+        const indexBadge = document.createElement("div");
+        indexBadge.className = "option-index";
+        indexBadge.textContent = displayIndex;
+
+        const title = document.createElement("div");
+        title.className = "option-title";
+        title.textContent = `Opción ${displayIndex} — ${dynamicTitle}`;
+        titleWrap.appendChild(indexBadge);
+        titleWrap.appendChild(title);
+        header.appendChild(titleWrap);
+
+        if (normalizedRecommendation && option.label === normalizedRecommendation) {
+          const tag = document.createElement("div");
+          tag.className = "option-tag";
+          tag.textContent = "Recomendada";
+          header.appendChild(tag);
+        }
+
+        const simScore = document.createElement("div");
+        simScore.className = "option-sim-score";
+        simScore.innerHTML = `Alineación con tus prioridades: <span class="option-sim-value">--/10</span>`;
+        const simInfo = document.createElement("span");
+        simInfo.className = "meta-item";
+        simInfo.dataset.tooltip =
+          "Estimación automática (heurística local) según tus sliders: riesgo, urgencia, ambigüedad y costo de no actuar. No es un puntaje ‘real’, solo una guía.";
+        const simInfoIcon = document.createElement("span");
+        simInfoIcon.className = "meta-info";
+        simInfoIcon.textContent = "ⓘ";
+        simInfo.appendChild(simInfoIcon);
+        simScore.appendChild(simInfo);
+
+        const body = document.createElement("div");
+        body.className = "option-body";
+
+        const optionCopy = document.createElement("div");
+        optionCopy.className = "option-text";
+        optionCopy.textContent = buildStrategicOptionCopy(optionBodyText, option.label, resolvedContext);
+        body.appendChild(optionCopy);
+
+        if (hasAnalysis) {
+          const execRow = document.createElement("div");
+          execRow.className = "exec-row";
+          const execTitle = document.createElement("div");
+          execTitle.className = "exec-title";
+          execTitle.textContent = "Ejecutar";
+          const execButtons = document.createElement("div");
+          execButtons.className = "exec-buttons";
+          const emailBtn = document.createElement("button");
+          emailBtn.type = "button";
+          emailBtn.className = "exec-button";
+          emailBtn.textContent = "Email al inversionista";
+          const checklistBtn = document.createElement("button");
+          checklistBtn.type = "button";
+          checklistBtn.className = "exec-button";
+          checklistBtn.textContent = "Checklist 10 min";
+          execButtons.appendChild(emailBtn);
+          execButtons.appendChild(checklistBtn);
+          execRow.appendChild(execTitle);
+          execRow.appendChild(execButtons);
+          body.appendChild(execRow);
+
+          emailBtn.addEventListener("click", () => {
+            const content = generateDeliverable("email", lastUserText, dynamicTitle, optionBodyText, resolvedContext);
+            openModal(`Email al inversionista — Opción ${displayIndex}`, content);
+          });
+          checklistBtn.addEventListener("click", () => {
+            const content = generateDeliverable("checklist", lastUserText, dynamicTitle, optionBodyText, resolvedContext);
+            openModal(`Checklist 10 min — Opción ${displayIndex}`, content);
+          });
+        }
+
+        const copyButton = document.createElement("button");
+        copyButton.type = "button";
+        copyButton.className = "copy-button";
+        copyButton.setAttribute("aria-label", "Copiar");
+        copyButton.setAttribute("title", "Copiar");
+        const copyIcon = document.createElement("img");
+        copyIcon.src = "/iconos/copy.svg";
+        copyIcon.alt = "";
+        copyIcon.setAttribute("aria-hidden", "true");
+        copyButton.appendChild(copyIcon);
+
+        const copyFeedback = document.createElement("span");
+        copyFeedback.className = "copy-feedback";
+        copyFeedback.textContent = "Copiado ✓";
+
+        copyButton.addEventListener("click", async (event) => {
+          event.stopPropagation();
+          try {
+            const optionTextEl = event.currentTarget.closest(".option-card")?.querySelector(".option-text");
+            if (!optionTextEl) return;
+            await navigator.clipboard.writeText(optionTextEl.textContent || "");
+            copyFeedback.classList.remove("is-visible");
+            void copyFeedback.offsetWidth;
+            copyFeedback.classList.add("is-visible");
+            setTimeout(() => {
+              copyFeedback.classList.remove("is-visible");
+            }, 900);
+          } catch (error) {
+            console.error(error);
+          }
+        });
+
+        const copyRow = document.createElement("div");
+        copyRow.className = "copy-row";
+        copyRow.appendChild(copyButton);
+        copyRow.appendChild(copyFeedback);
+        body.appendChild(copyRow);
+        card.appendChild(header);
+        card.appendChild(simScore);
+        card.appendChild(body);
+        card.classList.add("option-animate");
+        card.style.animationDelay = `${index * 60}ms`;
+        optionsListEl.appendChild(card);
+      });
+      renderCompareTable();
+      attachOptionHoverSim();
+      updateRadar();
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  function parseResponse(answer) {
+    try {
+      if (!answer) return { analysis: "", options: [], recommendation: "", context: "General" };
+      const normalized = answer.replace(/\r\n/g, "\n");
+      const lines = normalized.split("\n");
+      const allowedContexts = [
+        "General",
+        "Negociación",
+        "Trabajo / Política interna",
+        "Cliente / Ventas",
+        "Carrera / Oferta laboral"
+      ];
+      const stripAccents = (value) =>
+        value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const normalizedAllowed = allowedContexts.map((context) => ({
+        raw: context,
+        normalized: stripAccents(context).toLowerCase()
+      }));
+      let context = "General";
+      let contextLineIndex = -1;
+      for (let i = 0; i < lines.length; i += 1) {
+        const line = lines[i];
+        if (!line.trim()) continue;
+        const normalizedLine = stripAccents(line).toLowerCase();
+        if (normalizedLine.startsWith("contexto:")) {
+          const rawValue = line.split(":").slice(1).join(":").trim();
+          const normalizedValue = stripAccents(rawValue).toLowerCase();
+          const match = normalizedAllowed.find(item => item.normalized === normalizedValue);
+          if (match) {
+            context = match.raw;
+          }
+          contextLineIndex = i;
+          break;
+        }
+      }
+      const normalizedWithoutContext = contextLineIndex === -1
+        ? normalized
+        : lines.filter((_, index) => index !== contextLineIndex).join("\n").trim();
+      const recommendationMatch = normalized.match(/RECOMENDACI[ÓO]N\s*:\s*([A-C])/i);
+      const recommendation = recommendationMatch ? recommendationMatch[1].toUpperCase() : "";
+      const cleaned = normalizedWithoutContext
+        .replace(/^\s*RECOMENDACI[ÓO]N\s*:\s*[A-C]\s*$/gim, "")
+        .trim();
+      const optionRegex = (label) =>
+        new RegExp(
+          `Opc[ií]ón\\s*${label}\\s*(?:\\([^\\)]*\\))?\\s*:\\s*([\\s\\S]*?)(?=Opc[ií]ón\\s*[A-C]\\s*(?:\\(|:)|$)`,
+          "i"
+        );
+      const options = ["A", "B", "C"]
+        .map((label) => {
+          const match = cleaned.match(optionRegex(label));
+          return match ? { label, text: match[1].trim() } : null;
+        })
+        .filter(Boolean);
+      const firstOptionIndex = cleaned.search(/Opc[ií]ón\s*[A-C]/i);
+      const analysisContent =
+        firstOptionIndex !== -1 ? cleaned.slice(0, firstOptionIndex).trim() : cleaned.trim();
+      return { analysis: analysisContent, options, recommendation, context };
+    } catch (error) {
+      console.error(error);
+      return { analysis: answer || "", options: [], recommendation: "", context: "General" };
+    }
+  }
+
+  function setLoading(state) {
+    isLoading = state;
+    submitButton.disabled = state;
+    submitButton.textContent = state ? "Analizando…" : "Analizar";
+    loaderMobile.classList.toggle("is-active", state);
+    if (loaderDesktopEl) {
+      loaderDesktopEl.classList.toggle("is-active", state);
+    }
+    if (currentResponseShell) {
+      currentResponseShell.classList.toggle("is-loading", state);
+    }
+  }
+
+  function loadChat() {
+    messages = [];
+    if (WELCOME) {
+      addMessage("assistant", WELCOME);
+    }
+  }
+
+  if (columnInput) {
+    columnInput.addEventListener("transitionend", (event) => {
+      if (event.propertyName !== "max-height") return;
+      if (columnInput.classList.contains("is-hidden")) {
+        columnInput.classList.add("is-removed");
+      }
+    });
+  }
+
+  async function sendMessage(text) {
+    lastUserText = text;
+    if (workspaceEl) {
+      workspaceEl.classList.add("is-analysis");
+    }
+    if (columnInput) {
+      columnInput.classList.remove("is-removed");
+      columnInput.classList.add("is-hidden");
+    }
+    const payloadLines = [
+      `[Instrucción: Detecta el contexto de la situación (General / Negociación / Trabajo / Política interna / Cliente / Ventas / Carrera / Oferta laboral) y devuélvelo como "CONTEXTO: <valor>" al inicio de tu respuesta.]`
+    ];
+    payloadLines.push(text);
+    const payloadFinal = payloadLines.join("\n");
+
+    messagesEl.innerHTML = "";
+    messages = [{ role: "user", content: payloadFinal }];
+
+    const assistantShell = document.createElement("div");
+    assistantShell.className = "response-shell is-loading";
+    currentResponseShell = assistantShell;
+    if (closingLine) {
+      closingLine.style.display = "none";
+    }
+
+    const insightBlock = document.createElement("div");
+    insightBlock.className = "insight-block";
+
+    const insightLabel = document.createElement("div");
+    insightLabel.className = "insight-label";
+    insightLabel.textContent = "LO QUE REALMENTE ESTÁ OCURRIENDO";
+
+    insightContextEl = null;
+
+    insightTextEl = document.createElement("div");
+    insightTextEl.className = "insight-text";
+    insightTextEl.textContent = "";
+
+    insightSubtextEl = document.createElement("div");
+    insightSubtextEl.className = "insight-subtext";
+    insightSubtextEl.textContent = "";
+
+    reasoningToggleEl = document.createElement("button");
+    reasoningToggleEl.type = "button";
+    reasoningToggleEl.className = "reasoning-toggle";
+    reasoningToggleEl.textContent = "Ver razonamiento completo";
+    reasoningToggleEl.style.display = "none";
+
+    insightBlock.appendChild(insightLabel);
+    insightBlock.appendChild(insightTextEl);
+    insightBlock.appendChild(insightSubtextEl);
+    insightBlock.classList.add("cc-box");
+
+    const trustRow = createTrustRow();
+    trustRowEl = trustRow.row;
+    trustRowEl.style.display = "none";
+    trustRowEl.classList.add("cc-box");
+
+    analysisPanelEl = document.createElement("div");
+    analysisPanelEl.className = "analysis-panel";
+
+    loaderDesktopEl = buildLoaderPanel("loader-desktop");
+
+    dashboardEl = buildDecisionDashboard(deriveMetricsFromAnalysis(""), "General");
+    dashboardEl.classList.add("cc-box");
+
+    summaryBlocksEl = document.createElement("div");
+    summaryBlocksEl.className = "summary-blocks cc-block";
+
+    const optionsTitleEl = document.createElement("div");
+    optionsTitleEl.className = "options-title";
+    optionsTitleEl.textContent = "Decisiones disponibles";
+
+    compareControlsEl = document.createElement("div");
+    compareControlsEl.className = "compare-controls";
+
+    compareCardEl = document.createElement("div");
+    compareCardEl.className = "compare-card";
+    compareCardEl.style.display = "none";
+
+    optionsListEl = document.createElement("div");
+    optionsListEl.className = "options-list dashboard-grid";
+
+    const commandCenter = document.createElement("div");
+    commandCenter.className = "command-center";
+
+    const ccLeft = document.createElement("aside");
+    ccLeft.className = "cc-left";
+
+    const ccRight = document.createElement("main");
+    ccRight.className = "cc-right";
+
+    radarCardEl = document.createElement("div");
+    radarCardEl.className = "radar-card cc-box";
+    const radarTitle = document.createElement("div");
+    radarTitle.className = "radar-title";
+    radarTitle.textContent = "Radar de decisión";
+    radarCanvasEl = document.createElement("canvas");
+    radarCanvasEl.className = "radar-canvas";
+    radarCardEl.appendChild(radarTitle);
+    radarCardEl.appendChild(radarCanvasEl);
+
+    analysisWrapEl = document.createElement("div");
+    analysisWrapEl.className = "analysis-wrap cc-block";
+    analysisWrapEl.appendChild(reasoningToggleEl);
+    analysisWrapEl.appendChild(analysisPanelEl);
+
+    optionsWrapEl = document.createElement("div");
+    optionsWrapEl.className = "options-wrap cc-block";
+    optionsWrapEl.appendChild(optionsTitleEl);
+    optionsWrapEl.appendChild(optionsListEl);
+
+    compareWrapEl = document.createElement("div");
+    compareWrapEl.className = "compare-wrap cc-block";
+    compareWrapEl.appendChild(compareControlsEl);
+    compareWrapEl.appendChild(compareCardEl);
+
+    ccLeft.appendChild(insightBlock);
+    ccLeft.appendChild(trustRowEl);
+    ccLeft.appendChild(loaderDesktopEl);
+    ccLeft.appendChild(dashboardEl);
+    ccLeft.appendChild(radarCardEl);
+
+    ccRight.appendChild(summaryBlocksEl);
+    ccRight.appendChild(optionsWrapEl);
+    ccRight.appendChild(compareWrapEl);
+    ccRight.appendChild(analysisWrapEl);
+
+    commandCenter.appendChild(ccLeft);
+    commandCenter.appendChild(ccRight);
+    assistantShell.appendChild(commandCenter);
+    messagesEl.appendChild(assistantShell);
+    requestAnimationFrame(() => {
+      assistantShell.classList.add("is-visible");
+      updateRadar();
+    });
+
+    reasoningToggleEl.addEventListener("click", () => {
+      analysisPanelEl.classList.toggle("is-open");
+      const isOpen = analysisPanelEl.classList.contains("is-open");
+      reasoningToggleEl.textContent = isOpen
+        ? "Ocultar análisis"
+        : "Ver razonamiento completo";
+    });
+
+    setLoading(true);
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages })
+      });
+
+      const rawText = await res.text();
+      let answerText = rawText;
+      try {
+        const data = JSON.parse(rawText);
+        if (data && typeof data.answer === "string") {
+          answerText = data.answer;
+        }
+      } catch (error) {
+        console.error(error);
+      }
+
+      const parsed = parseResponse(answerText || "");
+      addAssistantResponse(parsed.analysis, parsed.options, parsed.recommendation, parsed.context);
+      messages.push({ role: "assistant", content: answerText });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  form.addEventListener("submit", e => {
+    e.preventDefault();
+    if (isLoading) return;
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    input.style.height = "";
+    sendMessage(text);
+  });
+
+  function autoGrowTextarea() {
+    const styles = getComputedStyle(input);
+    const lineHeight = parseFloat(styles.lineHeight) || 24;
+    const maxHeight = lineHeight * 8;
+    input.style.height = "auto";
+    input.style.height = `${Math.min(input.scrollHeight, maxHeight)}px`;
+  }
+
+  input.addEventListener("input", autoGrowTextarea);
+  input.addEventListener("keydown", event => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      form.requestSubmit();
+    }
+  });
+  autoGrowTextarea();
+
+  window.addEventListener("resize", () => {
+    updateRadar();
+  });
+
+  menuBtn.onclick = () => menu.classList.toggle("open");
+  resetBtn.onclick = () => {
+    messages = [];
+    messagesEl.innerHTML = "";
+    compareState = { selected: [], options: [] };
+    dashboardState = { mode: "auto", autoMetrics: null, activeMetrics: null };
+    hoverSimMetrics = null;
+    lastAnalysisText = "";
+    lastOptionTexts = [];
+    closeModal();
+    if (WELCOME) {
+      addMessage("assistant", WELCOME);
+    }
+    if (workspaceEl) {
+      workspaceEl.classList.remove("is-analysis");
+    }
+    if (columnInput) {
+      columnInput.classList.remove("is-hidden");
+      columnInput.classList.remove("is-removed");
+    }
+    menu.classList.remove("open");
+    if (closingLine) {
+      closingLine.style.display = "";
+    }
+  };
+
+  loadChat();
+</script>
+
+</body>
+</html>
