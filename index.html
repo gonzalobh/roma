@@ -830,6 +830,76 @@
       white-space: pre-wrap;
     }
 
+    .suggested-messages {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+
+    .suggested-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .suggested-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .suggested-item {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .suggested-version {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .suggested-text {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text-primary);
+      white-space: pre-wrap;
+    }
+
+    .suggested-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .suggested-copy-button {
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text-secondary);
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+    }
+
+    .suggested-copy-button:hover {
+      border-color: var(--text-secondary);
+      color: var(--text-primary);
+      background: var(--surface);
+    }
+
     .copy-row {
       display: flex;
       align-items: center;
@@ -1730,26 +1800,18 @@
         });
       }
 
-      const lecturaIndex = normalized.search(/Lectura r[áa]pida/i);
       const pasandoIndex = normalized.search(/Qu[eé]\s+est[aá]\s+pasando/i);
       const estrategiaIndex = normalized.search(/Estrategia/i);
-      if (lecturaIndex === -1 || pasandoIndex === -1 || pasandoIndex <= lecturaIndex) {
+      if (pasandoIndex === -1) {
         return null;
       }
 
-      const lecturaTitleMatch = normalized.match(/Lectura r[áa]pida/i);
       const pasandoTitleMatch = normalized.match(/Qu[eé]\s+est[aá]\s+pasando/i);
       const estrategiaTitleMatch = normalized.match(/Estrategia/i);
-      const lecturaTitleRaw = lecturaTitleMatch ? lecturaTitleMatch[0] : "Lectura rápida";
       const pasandoTitleRaw = pasandoTitleMatch ? pasandoTitleMatch[0] : "Qué está pasando";
       const estrategiaTitleRaw = estrategiaTitleMatch ? estrategiaTitleMatch[0] : "Estrategia";
-      const lecturaTitle = lecturaTitleRaw.trim();
       const pasandoTitle = pasandoTitleRaw.trim();
       const estrategiaTitle = estrategiaTitleRaw.trim();
-      const lecturaBody = normalized
-        .slice(lecturaIndex + lecturaTitleRaw.length, pasandoIndex)
-        .trim()
-        .replace(/^[:\-\s]+/, "");
       let pasandoBody = "";
       let estrategiaBody = "";
 
@@ -1769,10 +1831,7 @@
           .replace(/^[:\-\s]+/, "");
       }
 
-      const sections = [
-        { title: lecturaTitle, body: lecturaBody },
-        { title: pasandoTitle, body: pasandoBody }
-      ];
+      const sections = [{ title: pasandoTitle, body: pasandoBody }];
       if (estrategiaBody) {
         sections.push({ title: estrategiaTitle, body: estrategiaBody });
       }
@@ -2116,16 +2175,20 @@
     };
     if (!analysisText) return defaults;
     const normalized = analysisText.replace(/\r\n/g, "\n");
-    const lectura = findSectionText(
-      normalized,
-      /Lectura r[áa]pida/i,
-      [/Qu[eé]\s+est[aá]\s+pasando/i, /Estrategia/i, /Opc[ií]ón\s*[A-C]/i]
+    const cleaned = normalized.replace(
+      /Lectura r[áa]pida[\s\S]*?(?=Qu[eé]\s+est[aá]\s+pasando|Estrategia|Opc[ií]ón\s*[A-C]|$)/i,
+      ""
     );
-    const combined = `${lectura}\n${normalized}`.toLowerCase();
+    const pasando = findSectionText(
+      cleaned,
+      /Qu[eé]\s+est[aá]\s+pasando/i,
+      [/Estrategia/i, /Opc[ií]ón\s*[A-C]/i]
+    );
+    const combined = `${pasando}\n${cleaned}`.toLowerCase();
     const metrics = { ...defaults };
 
-    if (lectura) {
-      const lines = lectura.split("\n").map(line => line.trim()).filter(Boolean);
+    if (pasando) {
+      const lines = pasando.split("\n").map(line => line.trim()).filter(Boolean);
       lines.forEach(line => {
         if (/riesgo/i.test(line)) {
           const level = parseLevelKeyword(line);
@@ -2313,6 +2376,42 @@
       : "";
 
     return [opener, core + extra, closing].join(" ");
+  }
+
+  function buildSuggestedMessages({ optionBody, situationText }) {
+    const situationLine = trimToSentences(situationText || "", 1);
+    const optionLine = trimToSentences(optionBody || "", 2) || optionBody || "";
+    const contextLine = situationLine ? `Sobre lo que pasó: ${situationLine}` : "";
+    const anchorLine = optionLine ? `Lo que propongo es: ${optionLine}` : "Lo que propongo es ordenar esto con calma.";
+
+    const neutral = [
+      contextLine,
+      "Quiero ordenar esto con calma.",
+      anchorLine,
+      "¿Te parece si lo hablamos y definimos próximos pasos?"
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    const empathetic = [
+      contextLine,
+      "Sé que esto puede sentirse delicado. Me importa cuidarnos.",
+      anchorLine,
+      "¿Podemos hablarlo con calma?"
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    const firm = [
+      contextLine,
+      "Necesito que dejemos esto claro para avanzar.",
+      anchorLine,
+      "Si estás de acuerdo, lo dejamos resuelto hoy."
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    return [neutral, empathetic, firm];
   }
 
   function buildDecisionDashboard(metrics, context = "General", analysisText = "", optionTexts = []) {
@@ -2623,7 +2722,7 @@
       <div class="modal" role="dialog" aria-modal="true">
         <div class="modal-header">Desbloquear análisis profundo</div>
         <div class="modal-body">
-          Veo subtexto y tensión. Desbloquea para ver “Lo que no te está diciendo” y usar 💎 Redactar por mí.
+          Veo subtexto y tensión. Desbloquea para ver “Lo que no te está diciendo”.
         </div>
         <div class="modal-actions">
           <button type="button" class="paywall-unlock">Desbloquear (demo)</button>
@@ -2696,17 +2795,16 @@
     };
     if (analysisText) {
       const normalized = analysisText.replace(/\r\n/g, "\n");
+      const cleaned = normalized.replace(
+        /Lectura r[áa]pida[\s\S]*?(?=Qu[eé]\s+est[aá]\s+pasando|Estrategia|Opc[ií]ón\s*[A-C]|$)/i,
+        ""
+      );
       const pasando = findSectionText(
-        normalized,
+        cleaned,
         /Qu[eé]\s+est[aá]\s+pasando/i,
         [/Estrategia/i, /Opc[ií]ón\s*[A-C]/i]
       );
-      const lectura = findSectionText(
-        normalized,
-        /Lectura r[áa]pida/i,
-        [/Qu[eé]\s+est[aá]\s+pasando/i, /Estrategia/i]
-      );
-      const candidate = extractFirstSentence(pasando || lectura);
+      const candidate = extractFirstSentence(pasando || cleaned);
       if (candidate) {
         return candidate.length > 110 ? `${candidate.slice(0, 107).trim()}…` : candidate;
       }
@@ -2721,17 +2819,12 @@
       if (!rawAnalysisText) return fallback;
       const normalized = rawAnalysisText.replace(/\r\n/g, "\n").trim();
       if (!normalized) return fallback;
-      const lecturaSection = findSectionText(
-        normalized,
-        /Lectura r[áa]pida/i,
-        [/Qu[eé]\s+est[aá]\s+pasando/i, /Estrategia/i, /Opc[ií]ón\s*[A-C]/i]
+      const cleaned = normalized.replace(
+        /Lectura r[áa]pida[\s\S]*?(?=Qu[eé]\s+est[aá]\s+pasando|Estrategia|Opc[ií]ón\s*[A-C]|$)/i,
+        ""
       );
-      if (lecturaSection) {
-        const sentence = extractFirstSentence(lecturaSection);
-        if (sentence) return sentence;
-      }
       const pasandoSection = findSectionText(
-        normalized,
+        cleaned,
         /Qu[eé]\s+est[aá]\s+pasando/i,
         [/Estrategia/i, /Opc[ií]ón\s*[A-C]/i]
       );
@@ -2739,6 +2832,8 @@
         const sentence = extractFirstSentence(pasandoSection);
         if (sentence) return sentence;
       }
+      const generalSentence = extractFirstSentence(cleaned);
+      if (generalSentence) return generalSentence;
       return fallback;
     } catch (error) {
       console.error(error);
@@ -3003,7 +3098,6 @@
                 summaryBlocksEl.appendChild(block);
               }
             } else {
-              const lectura = sections.find(section => /lectura r[áa]pida/i.test(section.title));
               const pasando = sections.find(section => /qu[eé]\s+est[aá]\s+pasando/i.test(section.title));
               const estrategia = sections.find(section => /estrategia/i.test(section.title));
               if (pasando && pasando.body) {
@@ -3015,19 +3109,6 @@
                 const body = document.createElement("div");
                 body.className = "summary-body";
                 body.textContent = trimToSentences(pasando.body, 2) || pasando.body;
-                block.appendChild(title);
-                block.appendChild(body);
-                summaryBlocksEl.appendChild(block);
-              }
-              if (lectura && lectura.body) {
-                const block = document.createElement("div");
-                block.className = "summary-block";
-                const title = document.createElement("div");
-                title.className = "summary-title";
-                title.textContent = "Lectura rápida";
-                const body = document.createElement("div");
-                body.className = "summary-body";
-                body.textContent = trimToSentences(lectura.body, 2) || lectura.body;
                 block.appendChild(title);
                 block.appendChild(body);
                 summaryBlocksEl.appendChild(block);
@@ -3266,66 +3347,58 @@
         body.appendChild(optionCopy);
 
         if (hasAnalysis) {
-          const execRow = document.createElement("div");
-          execRow.className = "exec-row";
-          const execTitle = document.createElement("div");
-          execTitle.className = "exec-title";
-          execTitle.textContent = "Ejecutar";
-          const execButtons = document.createElement("div");
-          execButtons.className = "exec-buttons";
-          const diamondBtn = document.createElement("button");
-          diamondBtn.type = "button";
-          diamondBtn.className = "exec-button";
-          diamondBtn.textContent = "💎 Redactar por mí";
-          execButtons.appendChild(diamondBtn);
-          execRow.appendChild(execTitle);
-          execRow.appendChild(execButtons);
-          body.appendChild(execRow);
-
-          const runDiamond = async () => {
-            diamondBtn.disabled = true;
-            try {
-              const draft = {
-                optionLabel: option.label,
-                optionTitle: dynamicTitle,
-                optionBody: optionCopy.textContent || ""
-              };
-              const res = await fetch(API_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  messages: [{ role: "user", content: lastUserText }],
-                  mode: "diamond",
-                  draft
-                })
-              });
-              const rawText = await res.text();
-              let answerText = rawText;
+          const suggestionsWrap = document.createElement("div");
+          suggestionsWrap.className = "suggested-messages";
+          const suggestionsTitle = document.createElement("div");
+          suggestionsTitle.className = "suggested-title";
+          suggestionsTitle.textContent = "Mensajes sugeridos";
+          const suggestionsList = document.createElement("div");
+          suggestionsList.className = "suggested-list";
+          const suggestedMessages = buildSuggestedMessages({
+            optionBody: optionBodyText,
+            situationText: lastUserText
+          });
+          suggestedMessages.forEach((message, messageIndex) => {
+            const item = document.createElement("div");
+            item.className = "suggested-item";
+            const versionLabel = document.createElement("div");
+            versionLabel.className = "suggested-version";
+            versionLabel.textContent = `Versión ${messageIndex + 1}`;
+            const messageText = document.createElement("div");
+            messageText.className = "suggested-text";
+            messageText.textContent = message;
+            const actions = document.createElement("div");
+            actions.className = "suggested-actions";
+            const copyMessageButton = document.createElement("button");
+            copyMessageButton.type = "button";
+            copyMessageButton.className = "suggested-copy-button";
+            copyMessageButton.textContent = "Copiar";
+            const copyMessageFeedback = document.createElement("span");
+            copyMessageFeedback.className = "copy-feedback";
+            copyMessageFeedback.textContent = "Copiado ✓";
+            copyMessageButton.addEventListener("click", async () => {
               try {
-                const data = JSON.parse(rawText);
-                if (data && typeof data.answer === "string") {
-                  answerText = data.answer;
-                }
+                await navigator.clipboard.writeText(messageText.textContent || "");
+                copyMessageFeedback.classList.remove("is-visible");
+                void copyMessageFeedback.offsetWidth;
+                copyMessageFeedback.classList.add("is-visible");
+                setTimeout(() => {
+                  copyMessageFeedback.classList.remove("is-visible");
+                }, 900);
               } catch (error) {
                 console.error(error);
               }
-              const partnerMessage = buildPartnerMessage({
-                optionLabel: option.label,
-                optionTitle: dynamicTitle,
-                optionBody: optionBodyText,
-                situationText: lastUserText
-              });
-              if (partnerMessage || answerText) {
-                openModal("Mensaje listo para enviar", partnerMessage || answerText);
-              }
-            } catch (error) {
-              console.error(error);
-            } finally {
-              diamondBtn.disabled = false;
-            }
-          };
-
-          diamondBtn.addEventListener("click", runDiamond);
+            });
+            actions.appendChild(copyMessageButton);
+            actions.appendChild(copyMessageFeedback);
+            item.appendChild(versionLabel);
+            item.appendChild(messageText);
+            item.appendChild(actions);
+            suggestionsList.appendChild(item);
+          });
+          suggestionsWrap.appendChild(suggestionsTitle);
+          suggestionsWrap.appendChild(suggestionsList);
+          body.appendChild(suggestionsWrap);
         }
 
         const copyButton = document.createElement("button");
