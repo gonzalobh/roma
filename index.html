@@ -52,23 +52,6 @@
       gap: 10px;
     }
 
-    .incognito-button {
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--text-secondary);
-      font-size: 12px;
-      padding: 8px 14px;
-      border-radius: 999px;
-      letter-spacing: 0.02em;
-      text-transform: uppercase;
-    }
-
-    .incognito-button:hover {
-      border-color: var(--text-secondary);
-      color: var(--text-primary);
-      background: var(--bg);
-    }
-
     .app-title {
       font-size: 13px;
       font-weight: 500;
@@ -1045,54 +1028,12 @@
       opacity: 0.7;
     }
 
-    .incognito-overlay {
-      position: fixed;
-      inset: 0;
-      background: #ffffff;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-    }
-
-    .incognito-card {
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 26px 28px;
-      background: var(--surface);
-      text-align: center;
-      max-width: 320px;
-    }
-
-    .incognito-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-primary);
-      margin-bottom: 8px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .incognito-sub {
-      font-size: 13px;
-      color: var(--text-secondary);
-    }
-
-    body.is-incognito .incognito-overlay {
-      display: flex;
-    }
-
-    body.is-incognito .app-shell {
-      visibility: hidden;
-    }
-
     .response-shell.is-loading .insight-block,
     .response-shell.is-loading .dashboard-card,
     .response-shell.is-loading .summary-blocks,
     .response-shell.is-loading .analysis-panel,
     .response-shell.is-loading .compare-controls,
     .response-shell.is-loading .compare-card,
-    .response-shell.is-loading .trust-row,
     .response-shell.is-loading .options-title,
     .response-shell.is-loading .options-list,
     .response-shell.is-loading .reasoning-toggle,
@@ -1381,25 +1322,6 @@
       gap: 8px;
     }
 
-    .trust-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: -6px;
-    }
-
-    .trust-pill {
-      padding: 6px 12px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      font-size: 12px;
-      color: var(--text-secondary);
-      background: var(--bg);
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-
     .meta-item {
       position: relative;
       cursor: help;
@@ -1559,7 +1481,6 @@
   <div class="top-bar">
     <div class="app-title">Roma</div>
     <div class="top-actions">
-      <button class="incognito-button" id="incognitoBtn" type="button">Incógnito</button>
       <button class="menu-button" id="menuBtn" type="button">⋯</button>
     </div>
   </div>
@@ -1595,13 +1516,6 @@
   </div>
 </div>
 
-<div id="incognitoOverlay" class="incognito-overlay" aria-hidden="true">
-  <div class="incognito-card">
-    <div class="incognito-title">Modo incógnito</div>
-    <div class="incognito-sub">Pantalla limpia. Presiona ESC para volver.</div>
-  </div>
-</div>
-
 <script>
   const API_URL = "https://hotel-chat-proxy.vercel.app/api/t4";
 
@@ -1616,8 +1530,6 @@
   const loaderMobile = document.getElementById("loaderMobile");
   const closingLine = document.querySelector(".closing-line");
   const workspaceEl = document.querySelector(".workspace");
-  const incognitoBtn = document.getElementById("incognitoBtn");
-  const incognitoOverlay = document.getElementById("incognitoOverlay");
   const quotaBadge = document.getElementById("quotaBadge");
   const uploadShotBtn = document.getElementById("uploadShotBtn");
   const uploadShotInput = document.getElementById("uploadShotInput");
@@ -1638,7 +1550,6 @@
   let lastUserText = "";
   let lastAnalysisText = "";
   let lastOptionTexts = [];
-  let trustRowEl = null;
   let compareControlsEl = null;
   let compareCardEl = null;
   let compareState = { selected: [], options: [] };
@@ -2504,7 +2415,6 @@
           }
         });
       }
-      updateTrustRow(dashboardState.activeMetrics || metrics, analysisText, context);
       updateRadar();
     };
 
@@ -2582,7 +2492,6 @@
         }
         dashboardState.activeMetrics[row.key] = clampMetric(value);
         updateRow(rowEl, dashboardState.activeMetrics[row.key], row.gender);
-        updateTrustRow(dashboardState.activeMetrics, analysisText, context);
         if (compareState.render) {
           compareState.render();
         }
@@ -2605,64 +2514,6 @@
 
     setMode(dashboardState.mode || "auto");
     return dashboard;
-  }
-
-  function createTrustRow() {
-    const row = document.createElement("div");
-    row.className = "trust-row";
-    const confidence = document.createElement("div");
-    confidence.className = "trust-pill meta-item";
-    confidence.dataset.tooltip =
-      "Nivel de certeza de la IA basado en la claridad de la información provista.";
-    const confidenceLabel = document.createElement("span");
-    confidenceLabel.textContent = "Confianza";
-    const confidenceInfo = document.createElement("span");
-    confidenceInfo.className = "meta-info";
-    confidenceInfo.textContent = "i";
-    const confidenceValue = document.createElement("span");
-    confidenceValue.className = "meta-value";
-    confidenceValue.textContent = "70%";
-    confidence.appendChild(confidenceLabel);
-    confidence.appendChild(confidenceInfo);
-    confidence.appendChild(confidenceValue);
-
-    const framework = document.createElement("div");
-    framework.className = "trust-pill meta-item";
-    framework.dataset.tooltip =
-      "Modelo mental utilizado (ej. Costo-Beneficio, Principio de Pareto) para el análisis.";
-    const frameworkLabel = document.createElement("span");
-    frameworkLabel.textContent = "Marco";
-    const frameworkInfo = document.createElement("span");
-    frameworkInfo.className = "meta-info";
-    frameworkInfo.textContent = "i";
-    const frameworkValue = document.createElement("span");
-    frameworkValue.className = "meta-value";
-    frameworkValue.textContent = "Principios de claridad operativa";
-    framework.appendChild(frameworkLabel);
-    framework.appendChild(frameworkInfo);
-    framework.appendChild(frameworkValue);
-    row.appendChild(confidence);
-    row.appendChild(framework);
-    return { row, confidence, framework };
-  }
-
-  function updateTrustRow(metrics, analysisText, context) {
-    if (!trustRowEl) return;
-    const confidenceEl = trustRowEl.querySelector(".trust-pill");
-    const frameworkEl = trustRowEl.querySelectorAll(".trust-pill")[1];
-    if (confidenceEl) {
-      const confidence = computeConfidence(metrics);
-      const valueEl = confidenceEl.querySelector(".meta-value");
-      if (valueEl) {
-        valueEl.textContent = `${confidence}%`;
-      }
-    }
-    if (frameworkEl) {
-      const valueEl = frameworkEl.querySelector(".meta-value");
-      if (valueEl) {
-        valueEl.textContent = detectFramework(analysisText, context);
-      }
-    }
   }
 
   function ensureModal() {
@@ -2769,20 +2620,6 @@
       paywallBackdropEl.classList.remove("is-open");
     }
     pendingActionAfterUnlock = null;
-  }
-
-  function enterIncognito() {
-    document.body.classList.add("is-incognito");
-    messagesEl.innerHTML = "";
-    input.value = "";
-    autoGrowTextarea();
-    menu.classList.remove("open");
-    closeModal();
-    closePaywall();
-  }
-
-  function exitIncognito() {
-    document.body.classList.remove("is-incognito");
   }
 
   function extractSubInsight(analysisText, context) {
@@ -3016,11 +2853,7 @@
         dashboardEl.replaceWith(nextDashboard);
         dashboardEl = nextDashboard;
         dashboardEl.style.display = analysisText ? "flex" : "none";
-        updateTrustRow(metrics, analysisText || "", resolvedContext);
         updateRadar();
-      }
-      if (trustRowEl) {
-        trustRowEl.style.display = analysisText ? "flex" : "none";
       }
       if (summaryBlocksEl) {
         summaryBlocksEl.innerHTML = "";
@@ -3595,11 +3428,6 @@
     insightBlock.appendChild(insightSubtextEl);
     insightBlock.classList.add("cc-box");
 
-    const trustRow = createTrustRow();
-    trustRowEl = trustRow.row;
-    trustRowEl.style.display = "none";
-    trustRowEl.classList.add("cc-box");
-
     analysisPanelEl = document.createElement("div");
     analysisPanelEl.className = "analysis-panel";
 
@@ -3660,7 +3488,6 @@
     compareWrapEl.appendChild(compareCardEl);
 
     ccLeft.appendChild(insightBlock);
-    ccLeft.appendChild(trustRowEl);
     ccLeft.appendChild(loaderDesktopEl);
     ccLeft.appendChild(dashboardEl);
     ccLeft.appendChild(radarCardEl);
@@ -3795,21 +3622,8 @@
     updateRadar();
   });
 
-  if (incognitoBtn) {
-    incognitoBtn.addEventListener("click", enterIncognito);
-  }
-  if (incognitoOverlay) {
-    incognitoOverlay.addEventListener("click", exitIncognito);
-  }
-  window.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && document.body.classList.contains("is-incognito")) {
-      exitIncognito();
-    }
-  });
-
   menuBtn.onclick = () => menu.classList.toggle("open");
   resetBtn.onclick = () => {
-    exitIncognito();
     messages = [];
     messagesEl.innerHTML = "";
     compareState = { selected: [], options: [] };
