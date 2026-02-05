@@ -2,9 +2,10 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Decision Clarifier</title>
+  <title>Roma</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Aclara decisiones humanas. Entiende la situación, el riesgo y el próximo movimiento." />
+  <meta name="description" content="Calma y claridad para conversaciones difíciles. Pega el chat y obtén un plan para los próximos 10 minutos." />
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
   <style>
     :root {
@@ -43,6 +44,29 @@
       align-items: center;
       padding: 24px 28px 8px;
       position: relative;
+    }
+
+    .top-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .incognito-button {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-secondary);
+      font-size: 12px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .incognito-button:hover {
+      border-color: var(--text-secondary);
+      color: var(--text-primary);
+      background: var(--bg);
     }
 
     .app-title {
@@ -123,6 +147,29 @@
       margin-bottom: 18px;
     }
 
+    .column-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .column-header-row .column-header {
+      margin-bottom: 0;
+    }
+
+    .quota-badge {
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text-secondary);
+      font-size: 11px;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+
     .input-container {
       display: flex;
       flex-direction: column;
@@ -133,6 +180,33 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
+    }
+
+    .input-tools {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .tool-button {
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text-primary);
+      font-size: 12px;
+      padding: 8px 12px;
+      border-radius: 10px;
+    }
+
+    .tool-button:hover:not(:disabled) {
+      border-color: var(--text-secondary);
+      color: var(--text-primary);
+      background: var(--surface);
+    }
+
+    .tool-status {
+      font-size: 12px;
+      color: var(--text-secondary);
     }
 
     textarea {
@@ -901,6 +975,47 @@
       opacity: 0.7;
     }
 
+    .incognito-overlay {
+      position: fixed;
+      inset: 0;
+      background: #ffffff;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    .incognito-card {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 26px 28px;
+      background: var(--surface);
+      text-align: center;
+      max-width: 320px;
+    }
+
+    .incognito-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .incognito-sub {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    body.is-incognito .incognito-overlay {
+      display: flex;
+    }
+
+    body.is-incognito .app-shell {
+      visibility: hidden;
+    }
+
     .response-shell.is-loading .insight-block,
     .response-shell.is-loading .dashboard-card,
     .response-shell.is-loading .summary-blocks,
@@ -1139,6 +1254,21 @@
       display: flex;
     }
 
+    .paywall-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(17, 24, 39, 0.25);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 20;
+    }
+
+    .paywall-backdrop.is-open {
+      display: flex;
+    }
+
     .modal {
       background: var(--bg);
       border: 1px solid var(--border);
@@ -1154,6 +1284,12 @@
       font-size: 14px;
       font-weight: 500;
       color: var(--text-primary);
+    }
+
+    .modal-body {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text-secondary);
     }
 
     .modal textarea {
@@ -1351,8 +1487,11 @@
 
 <div class="app-shell">
   <div class="top-bar">
-    <div class="app-title">Decision Clarifier</div>
-    <button class="menu-button" id="menuBtn">⋯</button>
+    <div class="app-title">Roma</div>
+    <div class="top-actions">
+      <button class="incognito-button" id="incognitoBtn" type="button">Incógnito</button>
+      <button class="menu-button" id="menuBtn" type="button">⋯</button>
+    </div>
   </div>
   <div class="menu" id="menu">
     <button id="resetBtn">↺ Reiniciar chat</button>
@@ -1360,11 +1499,19 @@
 
   <div class="workspace">
     <section class="column column-input">
-      <div class="column-header">Describe la situación</div>
+      <div class="column-header-row">
+        <div class="column-header">Pega el chat o cuéntame qué pasó</div>
+        <span class="quota-badge" id="quotaBadge"></span>
+      </div>
       <form class="input-container" id="form">
         <div class="input-row">
-          <textarea id="input" rows="2" placeholder="Describe la situación (o pega el texto/email). Sé concreto." autocomplete="off" autofocus></textarea>
-          <button type="submit">Analizar</button>
+          <div class="input-tools">
+            <button type="button" class="tool-button" id="uploadShotBtn">📷 Subir captura</button>
+            <input type="file" id="uploadShotInput" accept="image/*" hidden />
+            <span class="tool-status" id="ocrStatus"></span>
+          </div>
+          <textarea id="input" rows="2" placeholder="Pega el chat de WhatsApp o describe la pelea. No hace falta escribir perfecto." autocomplete="off" autofocus></textarea>
+          <button type="submit">Calmar y aclarar</button>
           <div class="loader-panel loader-mobile" id="loaderMobile">
             <span class="loader-spinner" aria-hidden="true"></span>
             <span>Ordenando la situación…</span>
@@ -1374,12 +1521,19 @@
     </section>
 
     <div class="messages" id="messages"></div>
-    <div class="closing-line">La claridad no elimina el conflicto. Lo ordena.</div>
+    <div class="closing-line">Respira. Vamos paso a paso.</div>
+  </div>
+</div>
+
+<div id="incognitoOverlay" class="incognito-overlay" aria-hidden="true">
+  <div class="incognito-card">
+    <div class="incognito-title">Modo incógnito</div>
+    <div class="incognito-sub">Pantalla limpia. Presiona ESC para volver.</div>
   </div>
 </div>
 
 <script>
-  const API_URL = "https://hotel-chat-proxy.vercel.app/api/roma";
+  const API_URL = "https://hotel-chat-proxy.vercel.app/api/t4";
 
   const messagesEl = document.getElementById("messages");
   const form = document.getElementById("form");
@@ -1392,6 +1546,12 @@
   const loaderMobile = document.getElementById("loaderMobile");
   const closingLine = document.querySelector(".closing-line");
   const workspaceEl = document.querySelector(".workspace");
+  const incognitoBtn = document.getElementById("incognitoBtn");
+  const incognitoOverlay = document.getElementById("incognitoOverlay");
+  const quotaBadge = document.getElementById("quotaBadge");
+  const uploadShotBtn = document.getElementById("uploadShotBtn");
+  const uploadShotInput = document.getElementById("uploadShotInput");
+  const ocrStatus = document.getElementById("ocrStatus");
 
   let messages = [];
   let isLoading = false;
@@ -1418,6 +1578,10 @@
   let modalTextareaEl = null;
   let modalCopyBtn = null;
   let modalCloseBtn = null;
+  let paywallBackdropEl = null;
+  let paywallUnlockBtn = null;
+  let paywallCloseBtn = null;
+  let pendingActionAfterUnlock = null;
   let radarCanvasEl = null;
   let radarCardEl = null;
   let hoverSimMetrics = null;
@@ -1426,6 +1590,52 @@
   let analysisWrapEl = null;
 
   const WELCOME = "";
+
+  function getTodayKey() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function deepCountKey() {
+    return `roma_deep_count_${getTodayKey()}`;
+  }
+
+  function premiumKey() {
+    return `roma_premium_${getTodayKey()}`;
+  }
+
+  function getDailyDeepCount() {
+    return parseInt(localStorage.getItem(deepCountKey()) || "0", 10);
+  }
+
+  function incDailyDeepCount() {
+    const next = getDailyDeepCount() + 1;
+    localStorage.setItem(deepCountKey(), String(next));
+  }
+
+  function freeDeepRemaining() {
+    return Math.max(0, 2 - getDailyDeepCount());
+  }
+
+  function isPremiumUnlocked() {
+    return localStorage.getItem(premiumKey()) === "1";
+  }
+
+  function unlockPremium() {
+    localStorage.setItem(premiumKey(), "1");
+  }
+
+  function updateQuotaBadge() {
+    if (!quotaBadge) return;
+    if (isPremiumUnlocked()) {
+      quotaBadge.textContent = "Premium activo hoy";
+    } else {
+      quotaBadge.textContent = `Gratis hoy: ${freeDeepRemaining()}/2`;
+    }
+  }
 
   function addMessage(role, text) {
     const div = document.createElement("div");
@@ -1495,6 +1705,34 @@
   function extractAnalysisSections(text) {
     try {
       const normalized = text.replace(/\r\n/g, "\n").trim();
+      const romanceHeaders = [
+        { title: "Estado del Vínculo", regex: /Estado del V[íi]nculo/i },
+        { title: "Lo que no te está diciendo", regex: /Lo que no te est[aá] diciendo/i },
+        { title: "Plan de Contención", regex: /Plan de Contenci[oó]n/i },
+        { title: "Puentes o Muros", regex: /Puentes o Muros/i }
+      ];
+      const romanceMatches = romanceHeaders
+        .map(header => {
+          const index = normalized.search(header.regex);
+          const match = normalized.match(header.regex);
+          return index !== -1 && match ? { ...header, index, match } : null;
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.index - b.index);
+
+      if (romanceMatches.length) {
+        return romanceMatches.map((header, idx) => {
+          const nextHeader = romanceMatches[idx + 1];
+          const start = header.index + header.match[0].length;
+          const end = nextHeader ? nextHeader.index : normalized.length;
+          const body = normalized
+            .slice(start, end)
+            .trim()
+            .replace(/^[:\-\s]+/, "");
+          return { title: header.title, body };
+        });
+      }
+
       const lecturaIndex = normalized.search(/Lectura r[áa]pida/i);
       const pasandoIndex = normalized.search(/Qu[eé]\s+est[aá]\s+pasando/i);
       const estrategiaIndex = normalized.search(/Estrategia/i);
@@ -1660,10 +1898,10 @@
       const radius = Math.min(size, height) * 0.36;
       const levels = 5;
       const labels = [
-        { key: "risk", text: "Riesgo" },
-        { key: "urgency", text: "Urgencia" },
-        { key: "ambiguity", text: "Ambigüedad" },
-        { key: "inactionCost", text: "Costo" }
+        { key: "risk", text: "Prob. ruptura" },
+        { key: "urgency", text: "Tensión" },
+        { key: "ambiguity", text: "Subtexto" },
+        { key: "inactionCost", text: "Equilibrio poder" }
       ];
       const angleStep = (Math.PI * 2) / labels.length;
 
@@ -2046,7 +2284,7 @@
 
     const title = document.createElement("div");
     title.className = "dashboard-title";
-    title.textContent = "Decision Dashboard";
+    title.textContent = "Panel de tensión";
     dashboard.appendChild(title);
 
     const modeRow = document.createElement("div");
@@ -2083,10 +2321,10 @@
     dashboard.appendChild(modeRow);
 
     const rows = [
-      { key: "risk", label: "Riesgo", gender: "m" },
-      { key: "urgency", label: "Urgencia", gender: "f" },
-      { key: "ambiguity", label: "Ambigüedad", gender: "f" },
-      { key: "inactionCost", label: "Costo de no actuar", gender: "m" }
+      { key: "risk", label: "Prob. de ruptura", gender: "f" },
+      { key: "urgency", label: "Tensión", gender: "f" },
+      { key: "ambiguity", label: "Subtexto", gender: "m" },
+      { key: "inactionCost", label: "Equilibrio de poder", gender: "m" }
     ];
 
     if (!dashboardState.autoMetrics) {
@@ -2340,6 +2578,77 @@
     }
   }
 
+  function ensurePaywallModal() {
+    if (paywallBackdropEl) return;
+    paywallBackdropEl = document.createElement("div");
+    paywallBackdropEl.className = "paywall-backdrop";
+    paywallBackdropEl.innerHTML = `
+      <div class="modal" role="dialog" aria-modal="true">
+        <div class="modal-header">Desbloquear análisis profundo</div>
+        <div class="modal-body">
+          Veo subtexto y tensión. Desbloquea para ver “Lo que no te está diciendo” y usar 💎 Redactar por mí.
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="paywall-unlock">Desbloquear (demo)</button>
+          <button type="button" class="paywall-close">Ahora no</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(paywallBackdropEl);
+    paywallUnlockBtn = paywallBackdropEl.querySelector(".paywall-unlock");
+    paywallCloseBtn = paywallBackdropEl.querySelector(".paywall-close");
+
+    paywallBackdropEl.addEventListener("click", (event) => {
+      if (event.target === paywallBackdropEl) {
+        closePaywall();
+      }
+    });
+    if (paywallCloseBtn) {
+      paywallCloseBtn.addEventListener("click", closePaywall);
+    }
+    if (paywallUnlockBtn) {
+      paywallUnlockBtn.addEventListener("click", () => {
+        unlockPremium();
+        updateQuotaBadge();
+        closePaywall();
+        if (pendingActionAfterUnlock) {
+          const action = pendingActionAfterUnlock;
+          pendingActionAfterUnlock = null;
+          action();
+        }
+      });
+    }
+  }
+
+  function openPaywall(onUnlockAction) {
+    ensurePaywallModal();
+    pendingActionAfterUnlock = onUnlockAction || null;
+    if (paywallBackdropEl) {
+      paywallBackdropEl.classList.add("is-open");
+    }
+  }
+
+  function closePaywall() {
+    if (paywallBackdropEl) {
+      paywallBackdropEl.classList.remove("is-open");
+    }
+    pendingActionAfterUnlock = null;
+  }
+
+  function enterIncognito() {
+    document.body.classList.add("is-incognito");
+    messagesEl.innerHTML = "";
+    input.value = "";
+    autoGrowTextarea();
+    menu.classList.remove("open");
+    closeModal();
+    closePaywall();
+  }
+
+  function exitIncognito() {
+    document.body.classList.remove("is-incognito");
+  }
+
   function extractSubInsight(analysisText, context) {
     const fallbacks = {
       "Negociación": "El riesgo es el precedente, no el número.",
@@ -2586,57 +2895,129 @@
         if (analysisText) {
           const sections = extractAnalysisSections(analysisText);
           if (sections) {
-            const lectura = sections.find(section => /lectura r[áa]pida/i.test(section.title));
-            const pasando = sections.find(section => /qu[eé]\s+est[aá]\s+pasando/i.test(section.title));
-            const estrategia = sections.find(section => /estrategia/i.test(section.title));
-            if (pasando && pasando.body) {
-              const block = document.createElement("div");
-              block.className = "summary-block";
-              const title = document.createElement("div");
-              title.className = "summary-title";
-              title.textContent = "Qué está pasando";
-              const body = document.createElement("div");
-              body.className = "summary-body";
-              body.textContent = trimToSentences(pasando.body, 2) || pasando.body;
-              block.appendChild(title);
-              block.appendChild(body);
-              summaryBlocksEl.appendChild(block);
-            }
-            if (lectura && lectura.body) {
-              const block = document.createElement("div");
-              block.className = "summary-block";
-              const title = document.createElement("div");
-              title.className = "summary-title";
-              title.textContent = "Lectura rápida";
-              const body = document.createElement("div");
-              body.className = "summary-body";
-              body.textContent = trimToSentences(lectura.body, 2) || lectura.body;
-              block.appendChild(title);
-              block.appendChild(body);
-              summaryBlocksEl.appendChild(block);
-            }
-            if (estrategia && estrategia.body) {
-              const block = document.createElement("div");
-              block.className = "summary-block";
-              const title = document.createElement("div");
-              title.className = "summary-title";
-              title.textContent = "Marco estratégico";
-              const body = document.createElement("div");
-              body.className = "summary-body";
-              const list = document.createElement("ul");
-              extractBulletCandidates(estrategia.body).slice(0, 3).forEach((item) => {
-                const li = document.createElement("li");
-                li.textContent = item;
-                list.appendChild(li);
-              });
-              if (list.children.length) {
-                body.appendChild(list);
-              } else {
-                body.textContent = estrategia.body;
+            const isRomance = sections.some(section =>
+              /Estado del V[íi]nculo|Lo que no te est[aá] diciendo|Plan de Contenci[oó]n|Puentes o Muros/i.test(section.title)
+            );
+            if (isRomance) {
+              const vinculo = sections.find(section => /Estado del V[íi]nculo/i.test(section.title));
+              const subtexto = sections.find(section => /Lo que no te est[aá] diciendo/i.test(section.title));
+              const contencion = sections.find(section => /Plan de Contenci[oó]n/i.test(section.title));
+
+              if (vinculo && vinculo.body) {
+                const block = document.createElement("div");
+                block.className = "summary-block";
+                const title = document.createElement("div");
+                title.className = "summary-title";
+                title.textContent = "Estado del Vínculo";
+                const body = document.createElement("div");
+                body.className = "summary-body";
+                body.textContent = trimToSentences(vinculo.body, 2) || vinculo.body;
+                block.appendChild(title);
+                block.appendChild(body);
+                summaryBlocksEl.appendChild(block);
               }
-              block.appendChild(title);
-              block.appendChild(body);
-              summaryBlocksEl.appendChild(block);
+
+              if (subtexto && subtexto.body) {
+                const block = document.createElement("div");
+                block.className = "summary-block";
+                const title = document.createElement("div");
+                title.className = "summary-title";
+                title.textContent = "Lo que no te está diciendo";
+                const body = document.createElement("div");
+                body.className = "summary-body";
+                const bullets = extractBulletCandidates(subtexto.body).slice(0, 2);
+                if (bullets.length > 1) {
+                  const list = document.createElement("ul");
+                  bullets.forEach((item) => {
+                    const li = document.createElement("li");
+                    li.textContent = item;
+                    list.appendChild(li);
+                  });
+                  body.appendChild(list);
+                } else {
+                  body.textContent = trimToSentences(subtexto.body, 2) || subtexto.body;
+                }
+                block.appendChild(title);
+                block.appendChild(body);
+                summaryBlocksEl.appendChild(block);
+              }
+
+              if (contencion && contencion.body) {
+                const block = document.createElement("div");
+                block.className = "summary-block";
+                const title = document.createElement("div");
+                title.className = "summary-title";
+                title.textContent = "Plan de Contención";
+                const body = document.createElement("div");
+                body.className = "summary-body";
+                const list = document.createElement("ul");
+                extractBulletCandidates(contencion.body).slice(0, 3).forEach((item) => {
+                  const li = document.createElement("li");
+                  li.textContent = item;
+                  list.appendChild(li);
+                });
+                if (list.children.length) {
+                  body.appendChild(list);
+                } else {
+                  body.textContent = trimToSentences(contencion.body, 2) || contencion.body;
+                }
+                block.appendChild(title);
+                block.appendChild(body);
+                summaryBlocksEl.appendChild(block);
+              }
+            } else {
+              const lectura = sections.find(section => /lectura r[áa]pida/i.test(section.title));
+              const pasando = sections.find(section => /qu[eé]\s+est[aá]\s+pasando/i.test(section.title));
+              const estrategia = sections.find(section => /estrategia/i.test(section.title));
+              if (pasando && pasando.body) {
+                const block = document.createElement("div");
+                block.className = "summary-block";
+                const title = document.createElement("div");
+                title.className = "summary-title";
+                title.textContent = "Qué está pasando";
+                const body = document.createElement("div");
+                body.className = "summary-body";
+                body.textContent = trimToSentences(pasando.body, 2) || pasando.body;
+                block.appendChild(title);
+                block.appendChild(body);
+                summaryBlocksEl.appendChild(block);
+              }
+              if (lectura && lectura.body) {
+                const block = document.createElement("div");
+                block.className = "summary-block";
+                const title = document.createElement("div");
+                title.className = "summary-title";
+                title.textContent = "Lectura rápida";
+                const body = document.createElement("div");
+                body.className = "summary-body";
+                body.textContent = trimToSentences(lectura.body, 2) || lectura.body;
+                block.appendChild(title);
+                block.appendChild(body);
+                summaryBlocksEl.appendChild(block);
+              }
+              if (estrategia && estrategia.body) {
+                const block = document.createElement("div");
+                block.className = "summary-block";
+                const title = document.createElement("div");
+                title.className = "summary-title";
+                title.textContent = "Marco estratégico";
+                const body = document.createElement("div");
+                body.className = "summary-body";
+                const list = document.createElement("ul");
+                extractBulletCandidates(estrategia.body).slice(0, 3).forEach((item) => {
+                  const li = document.createElement("li");
+                  li.textContent = item;
+                  list.appendChild(li);
+                });
+                if (list.children.length) {
+                  body.appendChild(list);
+                } else {
+                  body.textContent = estrategia.body;
+                }
+                block.appendChild(title);
+                block.appendChild(body);
+                summaryBlocksEl.appendChild(block);
+              }
             }
           }
         }
@@ -2855,28 +3236,57 @@
           execTitle.textContent = "Ejecutar";
           const execButtons = document.createElement("div");
           execButtons.className = "exec-buttons";
-          const emailBtn = document.createElement("button");
-          emailBtn.type = "button";
-          emailBtn.className = "exec-button";
-          emailBtn.textContent = "Email al inversionista";
-          const checklistBtn = document.createElement("button");
-          checklistBtn.type = "button";
-          checklistBtn.className = "exec-button";
-          checklistBtn.textContent = "Checklist 10 min";
-          execButtons.appendChild(emailBtn);
-          execButtons.appendChild(checklistBtn);
+          const diamondBtn = document.createElement("button");
+          diamondBtn.type = "button";
+          diamondBtn.className = "exec-button";
+          diamondBtn.textContent = "💎 Redactar por mí";
+          execButtons.appendChild(diamondBtn);
           execRow.appendChild(execTitle);
           execRow.appendChild(execButtons);
           body.appendChild(execRow);
 
-          emailBtn.addEventListener("click", () => {
-            const content = generateDeliverable("email", lastUserText, dynamicTitle, optionBodyText, resolvedContext);
-            openModal(`Email al inversionista — Opción ${displayIndex}`, content);
-          });
-          checklistBtn.addEventListener("click", () => {
-            const content = generateDeliverable("checklist", lastUserText, dynamicTitle, optionBodyText, resolvedContext);
-            openModal(`Checklist 10 min — Opción ${displayIndex}`, content);
-          });
+          const runDiamond = async () => {
+            if (!isPremiumUnlocked()) {
+              openPaywall(runDiamond);
+              return;
+            }
+            diamondBtn.disabled = true;
+            try {
+              const draft = {
+                optionLabel: option.label,
+                optionTitle: dynamicTitle,
+                optionBody: optionCopy.textContent || ""
+              };
+              const res = await fetch(API_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  messages: [{ role: "user", content: lastUserText }],
+                  mode: "diamond",
+                  draft
+                })
+              });
+              const rawText = await res.text();
+              let answerText = rawText;
+              try {
+                const data = JSON.parse(rawText);
+                if (data && typeof data.answer === "string") {
+                  answerText = data.answer;
+                }
+              } catch (error) {
+                console.error(error);
+              }
+              if (answerText) {
+                openModal("Mensaje listo para WhatsApp (💎)", answerText);
+              }
+            } catch (error) {
+              console.error(error);
+            } finally {
+              diamondBtn.disabled = false;
+            }
+          };
+
+          diamondBtn.addEventListener("click", runDiamond);
         }
 
         const copyButton = document.createElement("button");
@@ -2999,7 +3409,7 @@
   function setLoading(state) {
     isLoading = state;
     submitButton.disabled = state;
-    submitButton.textContent = state ? "Analizando…" : "Analizar";
+    submitButton.textContent = state ? "Calmando…" : "Calmar y aclarar";
     loaderMobile.classList.toggle("is-active", state);
     if (loaderDesktopEl) {
       loaderDesktopEl.classList.toggle("is-active", state);
@@ -3027,6 +3437,11 @@
 
   async function sendMessage(text) {
     lastUserText = text;
+    let mode = "full";
+    if (!isPremiumUnlocked() && freeDeepRemaining() <= 0) {
+      mode = "teaser";
+    }
+    const willConsumeFree = !isPremiumUnlocked() && mode === "full" && freeDeepRemaining() > 0;
     if (workspaceEl) {
       workspaceEl.classList.add("is-analysis");
     }
@@ -3034,14 +3449,8 @@
       columnInput.classList.remove("is-removed");
       columnInput.classList.add("is-hidden");
     }
-    const payloadLines = [
-      `[Instrucción: Detecta el contexto de la situación (General / Negociación / Trabajo / Política interna / Cliente / Ventas / Carrera / Oferta laboral) y devuélvelo como "CONTEXTO: <valor>" al inicio de tu respuesta.]`
-    ];
-    payloadLines.push(text);
-    const payloadFinal = payloadLines.join("\n");
-
     messagesEl.innerHTML = "";
-    messages = [{ role: "user", content: payloadFinal }];
+    messages = [{ role: "user", content: text }];
 
     const assistantShell = document.createElement("div");
     assistantShell.className = "response-shell is-loading";
@@ -3055,7 +3464,7 @@
 
     const insightLabel = document.createElement("div");
     insightLabel.className = "insight-label";
-    insightLabel.textContent = "LO QUE REALMENTE ESTÁ OCURRIENDO";
+    insightLabel.textContent = "LO QUE ESTÁ EN JUEGO AHORA";
 
     insightContextEl = null;
 
@@ -3096,7 +3505,7 @@
 
     const optionsTitleEl = document.createElement("div");
     optionsTitleEl.className = "options-title";
-    optionsTitleEl.textContent = "Decisiones disponibles";
+    optionsTitleEl.textContent = "Puentes o muros";
 
     compareControlsEl = document.createElement("div");
     compareControlsEl.className = "compare-controls";
@@ -3121,7 +3530,7 @@
     radarCardEl.className = "radar-card cc-box";
     const radarTitle = document.createElement("div");
     radarTitle.className = "radar-title";
-    radarTitle.textContent = "Radar de decisión";
+    radarTitle.textContent = "Radar de tensión";
     radarCanvasEl = document.createElement("canvas");
     radarCanvasEl.className = "radar-canvas";
     radarCardEl.appendChild(radarTitle);
@@ -3175,7 +3584,7 @@
       const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages })
+        body: JSON.stringify({ messages, mode, draft: null })
       });
 
       const rawText = await res.text();
@@ -3192,6 +3601,13 @@
       const parsed = parseResponse(answerText || "");
       addAssistantResponse(parsed.analysis, parsed.options, parsed.recommendation, parsed.context);
       messages.push({ role: "assistant", content: answerText });
+      if (res.ok && answerText && willConsumeFree) {
+        incDailyDeepCount();
+        updateQuotaBadge();
+      }
+      if (mode === "teaser") {
+        openPaywall(() => sendMessage(lastUserText));
+      }
     } catch (error) {
       console.error(error);
     } finally {
@@ -3226,12 +3642,70 @@
   });
   autoGrowTextarea();
 
+  if (uploadShotBtn && uploadShotInput) {
+    uploadShotBtn.addEventListener("click", () => {
+      uploadShotInput.click();
+    });
+    uploadShotInput.addEventListener("change", async () => {
+      const file = uploadShotInput.files && uploadShotInput.files[0];
+      if (!file) return;
+      if (ocrStatus) {
+        ocrStatus.textContent = "Leyendo imagen…";
+      }
+      uploadShotBtn.disabled = true;
+      try {
+        let result = null;
+        try {
+          result = await Tesseract.recognize(file, "spa");
+        } catch (error) {
+          console.error(error);
+          result = await Tesseract.recognize(file, "eng");
+        }
+        const text = result?.data?.text?.trim();
+        if (text) {
+          if (!input.value.trim()) {
+            input.value = text;
+          } else {
+            input.value = `${input.value.trim()}\n\n${text}`;
+          }
+          autoGrowTextarea();
+          if (ocrStatus) {
+            ocrStatus.textContent = "";
+          }
+        } else if (ocrStatus) {
+          ocrStatus.textContent = "No pude leer la imagen. Prueba con otra captura más nítida.";
+        }
+      } catch (error) {
+        console.error(error);
+        if (ocrStatus) {
+          ocrStatus.textContent = "No pude leer la imagen. Prueba con otra captura más nítida.";
+        }
+      } finally {
+        uploadShotBtn.disabled = false;
+        uploadShotInput.value = "";
+      }
+    });
+  }
+
   window.addEventListener("resize", () => {
     updateRadar();
   });
 
+  if (incognitoBtn) {
+    incognitoBtn.addEventListener("click", enterIncognito);
+  }
+  if (incognitoOverlay) {
+    incognitoOverlay.addEventListener("click", exitIncognito);
+  }
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && document.body.classList.contains("is-incognito")) {
+      exitIncognito();
+    }
+  });
+
   menuBtn.onclick = () => menu.classList.toggle("open");
   resetBtn.onclick = () => {
+    exitIncognito();
     messages = [];
     messagesEl.innerHTML = "";
     compareState = { selected: [], options: [] };
@@ -3240,6 +3714,7 @@
     lastAnalysisText = "";
     lastOptionTexts = [];
     closeModal();
+    closePaywall();
     if (WELCOME) {
       addMessage("assistant", WELCOME);
     }
@@ -3254,8 +3729,10 @@
     if (closingLine) {
       closingLine.style.display = "";
     }
+    updateQuotaBadge();
   };
 
+  updateQuotaBadge();
   loadChat();
 </script>
 
